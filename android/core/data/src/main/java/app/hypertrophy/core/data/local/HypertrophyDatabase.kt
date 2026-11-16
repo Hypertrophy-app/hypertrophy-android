@@ -4,8 +4,19 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [WorkoutSessionEntity::class, SyncOutboxEntity::class],
-    version = 1,
+    entities = [
+        UserEntity::class,
+        ExerciseEntity::class,
+        WorkoutTemplateEntity::class,
+        WorkoutSessionEntity::class,
+        PersonalRecordEntity::class,
+        SquadEntity::class,
+        SquadMemberEntity::class,
+        ChallengeEntity::class,
+        UserBadgeEntity::class,
+        SyncOutboxEntity::class,
+    ],
+    version = 2,
     exportSchema = false,
 )
 abstract class HypertrophyDatabase : RoomDatabase() {

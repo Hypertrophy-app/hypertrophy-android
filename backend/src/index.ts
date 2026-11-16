@@ -2,9 +2,10 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
-import { SquadRoom } from "./durable/squad-room";
+import { SquadRoomDO } from "./durable-objects/SquadRoomDO";
 import type { Env } from "./env";
 import { requireAuth, type AuthVariables } from "./middleware/auth";
+import { apiRoutes } from "./routes/api";
 import { assetRoutes } from "./routes/assets";
 import { squadRoutes } from "./routes/squads";
 import { workoutRoutes } from "./routes/workouts";
@@ -14,6 +15,15 @@ const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 app.use("*", logger());
 app.use(
   "/v1/*",
+  cors({
+    origin: (origin) => origin,
+    allowHeaders: ["Authorization", "Content-Type"],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    maxAge: 600,
+  }),
+);
+app.use(
+  "/api/*",
   cors({
     origin: (origin) => origin,
     allowHeaders: ["Authorization", "Content-Type"],
@@ -32,6 +42,7 @@ app.get("/health", (c) =>
 );
 
 app.use("/v1/*", requireAuth);
+app.use("/api/*", requireAuth);
 
 app.get("/v1/me", (c) =>
   c.json({
@@ -43,6 +54,7 @@ app.get("/v1/me", (c) =>
 app.route("/v1/workouts", workoutRoutes);
 app.route("/v1/squads", squadRoutes);
 app.route("/v1/assets", assetRoutes);
+app.route("/api", apiRoutes);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 
@@ -51,5 +63,5 @@ app.onError((error, c) => {
   return c.json({ error: "internal_error" }, 500);
 });
 
-export { SquadRoom };
+export { SquadRoomDO };
 export default app;

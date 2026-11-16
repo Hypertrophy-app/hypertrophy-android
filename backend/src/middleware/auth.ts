@@ -12,7 +12,8 @@ type AuthEnv = { Bindings: Env; Variables: AuthVariables };
 
 /**
  * Verifies the Clerk session JWT that the Android client attaches as a
- * bearer token. Clerk is the only auth dependency; tokens are never persisted.
+ * bearer token. Verification uses the Clerk JWT key so the edge never needs
+ * a network round trip to Clerk.
  */
 export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   const authorization = c.req.header("Authorization");
@@ -26,12 +27,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   }
 
   try {
-    const payload = await verifyToken(token, {
-      secretKey: c.env.CLERK_SECRET_KEY,
-      authorizedParties: c.env.CLERK_AUTHORIZED_PARTIES
-        ? [c.env.CLERK_AUTHORIZED_PARTIES]
-        : undefined,
-    });
+    const payload = await verifyToken(token, { jwtKey: c.env.CLERK_JWT_KEY });
 
     if (!payload.sub) {
       return c.json({ error: "invalid_session" }, 401);

@@ -32,7 +32,7 @@ Before the first remote deploy, replace the placeholder `database_id` with the
 real D1 id from `npx wrangler d1 create hypertrophy-db` and create the R2 bucket
 with `npx wrangler r2 bucket create hypertrophy-assets`. Apply the generated D1
 migration with `npm run db:migrate:remote`. Set `CLERK_SECRET_KEY`,
-`CLERK_PUBLISHABLE_KEY`, and `CLERK_AUTHORIZED_PARTIES` as Worker secrets.
+`CLERK_PUBLISHABLE_KEY`, `CLERK_JWT_KEY`, and `CLERK_AUTHORIZED_PARTIES` as Worker secrets.
 
 Squad chat is serialized through `SQUAD_ROOM`, a SQLite-backed Durable Object.
 Completed sessions are uploaded as one JSON payload per session, keeping D1

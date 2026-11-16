@@ -22,6 +22,10 @@ class HypertrophyApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // Clerk is pinned in the version catalog but incompatible with the
+        // compileSdk 35 / Kotlin 2.1 baseline. When the baseline moves to
+        // compileSdk 37, initialize here:
+        // Clerk.initialize(this, publishableKey = BuildConfig.CLERK_PUBLISHABLE_KEY)
         syncScheduler.ensureScheduled()
     }
 }

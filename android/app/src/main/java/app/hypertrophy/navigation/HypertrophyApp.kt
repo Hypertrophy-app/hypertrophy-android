@@ -1,31 +1,41 @@
 package app.hypertrophy.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import app.hypertrophy.home.HomeScreen
 import app.hypertrophy.feature.workout.WorkoutRoute
-
-private object Routes {
-    const val HOME = "home"
-    const val WORKOUT = "workout"
-}
+import app.hypertrophy.home.HomeScreen
 
 @Composable
 fun HypertrophyApp() {
-    val navController = rememberNavController()
+    val navController: NavHostController = rememberNavController()
+    var currentTab by remember { mutableStateOf("today") }
 
-    NavHost(navController = navController, startDestination = Routes.HOME) {
-        composable(Routes.HOME) {
-            HomeScreen(
-                onStartWorkout = { navController.navigate(Routes.WORKOUT) },
-            )
-        }
-        composable(Routes.WORKOUT) {
-            WorkoutRoute(
-                onBack = { navController.popBackStack() },
-            )
+    MainScaffold(
+        currentRoute = currentTab,
+        onTabSelected = { route ->
+            currentTab = route
+            when (route) {
+                "workouts" -> navController.navigate("workout") { launchSingleTop = true }
+            }
+        },
+        onQuickWorkout = { navController.navigate("workout") },
+        onStartScheduled = { navController.navigate("workout") },
+        onHostJoinSquad = { navController.navigate("workout") },
+    ) {
+        NavHost(navController = navController, startDestination = "today") {
+            composable("today") {
+                HomeScreen(onStartWorkout = { navController.navigate("workout") })
+            }
+            composable("workout") {
+                WorkoutRoute(onBack = { navController.popBackStack() })
+            }
         }
     }
 }

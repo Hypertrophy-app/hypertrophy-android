@@ -6,9 +6,10 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import app.hypertrophy.core.designsystem.theme.PhoenixTypography
 
 @Composable
-fun HypertrophyTheme(
+fun PhoenixTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
@@ -48,7 +49,10 @@ fun HypertrophyTheme(
         )
     }
 
-    CompositionLocalProvider(LocalPhoenixColors provides phoenix) {
+    CompositionLocalProvider(
+        LocalPhoenixColors provides phoenix,
+        LocalPhoenixTypography provides PhoenixTypography,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = PhoenixTypography,
@@ -56,3 +60,9 @@ fun HypertrophyTheme(
         )
     }
 }
+
+@Composable
+fun HypertrophyTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) = PhoenixTheme(darkTheme = darkTheme, content = content)

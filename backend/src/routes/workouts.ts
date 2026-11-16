@@ -37,7 +37,7 @@ workoutRoutes.get("/sessions", async (c) => {
       title: workoutSessions.title,
       squadId: workoutSessions.squadId,
       startedAt: workoutSessions.startedAt,
-      completedAt: workoutSessions.completedAt,
+      endedAt: workoutSessions.endedAt,
       totalVolumeKg: workoutSessions.totalVolumeKg,
       createdAt: workoutSessions.createdAt,
     })
@@ -78,7 +78,7 @@ workoutRoutes.post("/sessions", async (c) => {
         squadId: session.squadId ?? null,
         title: session.title,
         startedAt: session.startedAt,
-        completedAt: session.completedAt,
+        endedAt: session.completedAt,
         totalVolumeKg,
         setsJson,
         createdAt: now,

@@ -17,11 +17,11 @@ bucket_name = "hypertrophy-assets"
 
 [[durable_objects.bindings]]
 name = "SQUAD_ROOM"
-class_name = "SquadRoom"
+class_name = "SquadRoomDO"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["SquadRoom"]
+new_sqlite_classes = ["SquadRoomDO"]
 
 [vars]
 ENVIRONMENT = "development"

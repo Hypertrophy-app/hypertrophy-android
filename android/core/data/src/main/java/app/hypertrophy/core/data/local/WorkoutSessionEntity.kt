@@ -18,8 +18,10 @@ data class WorkoutSessionEntity(
     @ColumnInfo(name = "squad_id") val squadId: String?,
     val title: String,
     @ColumnInfo(name = "started_at") val startedAt: Long,
-    @ColumnInfo(name = "completed_at") val completedAt: Long?,
+    @ColumnInfo(name = "ended_at") val endedAt: Long,
     @ColumnInfo(name = "total_volume_kg") val totalVolumeKg: Double,
+    @ColumnInfo(name = "avg_form_score") val avgFormScore: Double? = null,
+    @ColumnInfo(name = "ai_recap_text") val aiRecapText: String? = null,
     @ColumnInfo(name = "sets_json") val setsJson: String,
     @ColumnInfo(name = "created_at") val createdAt: Long,
 )
