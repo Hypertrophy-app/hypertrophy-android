@@ -1,0 +1,35 @@
+{
+  "name": "@hypertrophy/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply hypertrophy-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply hypertrophy-db --remote",
+    "typecheck": "tsc --noEmit",
+    "verify": "tsc --noEmit && wrangler deploy --dry-run"
+  },
+  "dependencies": {
+    "@clerk/backend": "^3.29.0",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.18",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261116.1",
+    "@types/node": "^24.19.2",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.162.0"
+  },
+  "allowScripts": {
+    "@clerk/shared@3.48.1": true,
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "workerd@1.20261113.1": true
+  }
+}

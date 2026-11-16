@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Hypertrophy</string>
+    <string name="home_eyebrow">STRENGTH OS</string>
+    <string name="home_tagline">Train with intention. Track every rep.</string>
+    <string name="home_ready">READY</string>
+    <string name="home_start_workout">Start workout</string>
+    <string name="home_streak_label">Day streak</string>
+</resources>
