@@ -58,6 +58,9 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":feature:workout"))
     implementation(project(":feature:coach"))
+    implementation(project(":feature:squad"))
+    implementation(project(":feature:today"))
+    implementation(project(":feature:profile"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

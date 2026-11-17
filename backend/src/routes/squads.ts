@@ -48,7 +48,7 @@ squadRoutes.post("/", async (c) => {
   const userId = c.get("userId");
   const id = crypto.randomUUID();
   const now = Date.now();
-  const inviteCode = crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+  const inviteCode = crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
 
   await db.batch([
     db.insert(squads).values({ id, name: parsed.data.name, inviteCode, ownerId: userId, createdAt: now }),
@@ -95,3 +95,4 @@ squadRoutes.get("/:squadId/messages", async (c) => {
   const stub = c.env.SQUAD_ROOM.get(c.env.SQUAD_ROOM.idFromName(squadId));
   return stub.fetch(`https://squad-room.internal/messages?squadId=${encodeURIComponent(squadId)}`, { method: "GET" });
 });
+
