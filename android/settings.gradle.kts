@@ -24,4 +24,7 @@ rootProject.name = "hypertrophy"
 include(":app")
 include(":core:designsystem")
 include(":core:data")
+include(":core:kinematics")
+include(":core:vision")
 include(":feature:workout")
+include(":feature:coach")

@@ -14,6 +14,15 @@ interface WorkoutDao {
     @Query("SELECT * FROM workout_sessions WHERE id = :id LIMIT 1")
     suspend fun findSession(id: String): WorkoutSessionEntity?
 
+    @Query(
+        "SELECT * FROM personal_records WHERE user_id = :userId AND exercise_id = :exerciseId " +
+            "ORDER BY achieved_at DESC LIMIT 1",
+    )
+    suspend fun findPersonalRecord(userId: String, exerciseId: String): PersonalRecordEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPersonalRecord(record: PersonalRecordEntity)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSession(session: WorkoutSessionEntity)
 

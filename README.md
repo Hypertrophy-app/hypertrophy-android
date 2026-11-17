@@ -50,10 +50,13 @@ sdk.dir=C\:\\Android\\Sdk
 
 Modules:
 
-- `:app` - Compose shell, navigation, Hilt entry point, WorkManager factory
+- `:app` - Compose shell, navigation, Hilt entry point, WorkManager factory, bundled `pose_landmarker_full.task`
 - `:core:designsystem` - Phoenix tokens, dual themes, bundled fonts, ember ring
 - `:core:data` - Room database, outbox, Ktor client, Hilt modules, `SyncWorker`, `SyncScheduler`
-- `:feature:workout` - live workout surface plus CameraX, MediaPipe, and Health Connect dependencies
+- `:core:kinematics` - pure Kotlin pose math, squat/hinge/push/pull/curl analyzers, rep and ROM state machine, tempo tracker, form fault rules, auto set/rest detection, 60-frame exercise classifier
+- `:core:vision` - CameraX preview plus `STRATEGY_KEEP_ONLY_LATEST` analysis, MediaPipe `PoseLandmarker` in `LIVE_STREAM` with GPU-to-CPU fallback, gold/crimson skeleton overlay, camera permission gate
+- `:feature:coach` - gym-distance HUD, offline TTS voice coach with transient audio-focus ducking, media-session music controls, full-screen rest ring, deterministic recap and Share to Squad
+- `:feature:workout` - exercise library, weekly planner, builder, substitution and reschedule engines, Health Connect hooks
 
 Build and test:
 
@@ -64,7 +67,10 @@ cd android
 ```
 
 `compileSdk` and `targetSdk` are 35, `minSdk` is 26. The version catalog lives at
-`android/gradle/libs.versions.toml`.
+`android/gradle/libs.versions.toml`. Unit tests cover the smart rescheduling
+engine and equipment substitution engine in `:feature:workout`, the synthetic
+pose kinematics suite in `:core:kinematics`, and the deterministic session
+recap in `:feature:coach`.
 
 ### Dependency baseline note
 
@@ -73,7 +79,11 @@ The platform baseline is `compileSdk 35` with Kotlin 2.1.21 and Compose BOM
 
 - `io.github.sceneview:sceneview:4.69.5` requires `compileSdk 37`, Kotlin
   2.4.21, and Compose BOM 2026.09.00. It is pinned in the version catalog but
-  intentionally left off the module classpath.
+  intentionally left off the module classpath. `ExerciseFormViewer` ships the
+  orbit, pinch-zoom, animation-speed, and emissive-highlight contract over a
+  hardware-free preview; replace its body with `SceneView { }` once the
+  platform baseline moves. `.glb` caching in `ExerciseModelCache` is already
+  SceneView-ready (`filesDir/models/<exerciseId>.glb`).
 - `com.clerk:clerk-android-ui:1.1.10` imports Kotlin 2.4.20 and Compose BOM
   2026.06.01, so it is also catalog-only until the baseline moves.
 - `androidx.health.connect:connect-client:1.1.0` declares `minCompileSdk 36` but

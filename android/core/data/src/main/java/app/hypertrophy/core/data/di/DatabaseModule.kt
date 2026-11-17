@@ -3,6 +3,7 @@ package app.hypertrophy.core.data.di
 import android.content.Context
 import androidx.room.Room
 import app.hypertrophy.core.data.local.HypertrophyDatabase
+import app.hypertrophy.core.data.local.TrainingDao
 import app.hypertrophy.core.data.local.WorkoutDao
 import dagger.Module
 import dagger.Provides
@@ -21,4 +22,7 @@ object DatabaseModule {
 
     @Provides
     fun provideWorkoutDao(database: HypertrophyDatabase): WorkoutDao = database.workoutDao()
+
+    @Provides
+    fun provideTrainingDao(database: HypertrophyDatabase): TrainingDao = database.trainingDao()
 }

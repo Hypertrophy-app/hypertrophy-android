@@ -15,10 +15,12 @@ import androidx.room.RoomDatabase
         ChallengeEntity::class,
         UserBadgeEntity::class,
         SyncOutboxEntity::class,
+        ScheduledWorkoutEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class HypertrophyDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
+    abstract fun trainingDao(): TrainingDao
 }

@@ -16,9 +16,6 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,7 +30,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.hypertrophy.core.designsystem.component.PhoenixIgnitionButton
 import app.hypertrophy.core.designsystem.theme.LocalPhoenixColors
-import app.hypertrophy.core.designsystem.theme.LocalPhoenixTypography
 
 data class TabItem(val route: String, val label: String, val icon: ImageVector)
 
@@ -44,6 +40,7 @@ fun MainScaffold(
     onQuickWorkout: () -> Unit,
     onStartScheduled: () -> Unit,
     onHostJoinSquad: () -> Unit,
+    showBottomBar: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val colors = LocalPhoenixColors.current
@@ -51,56 +48,64 @@ fun MainScaffold(
 
     Scaffold(
         bottomBar = {
-            BottomAppBar(
-                containerColor = colors.surface,
-                actions = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        val tabs = listOf(
-                            TabItem("today", "Today", Icons.Filled.Home),
-                            TabItem("workouts", "Workouts", Icons.Filled.List),
-                        )
-                        tabs.forEach { tab ->
-                            NavigationBarItem(
-                                selected = currentRoute == tab.route,
-                                onClick = { onTabSelected(tab.route) },
-                                icon = { Icon(tab.icon, contentDescription = tab.label) },
-                                label = { Text(tab.label) },
+            if (showBottomBar) {
+                BottomAppBar(
+                    containerColor = colors.surface,
+                    actions = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val tabs = listOf(
+                                TabItem("today", "Today", Icons.Filled.Home),
+                                TabItem("workouts", "Workouts", Icons.Filled.List),
                             )
-                        }
-                        // central spacer for FAB
-                        Box(modifier = Modifier.size(72.dp))
-                        val tabs2 = listOf(
-                            TabItem("squad", "Squad", Icons.Filled.Star),
-                            TabItem("you", "You", Icons.Filled.Person),
-                        )
-                        tabs2.forEach { tab ->
-                            NavigationBarItem(
-                                selected = currentRoute == tab.route,
-                                onClick = { onTabSelected(tab.route) },
-                                icon = { Icon(tab.icon, contentDescription = tab.label) },
-                                label = { Text(tab.label) },
+                            tabs.forEach { tab ->
+                                NavigationBarItem(
+                                    selected = currentRoute == tab.route,
+                                    onClick = { onTabSelected(tab.route) },
+                                    icon = { Icon(tab.icon, contentDescription = tab.label) },
+                                    label = { Text(tab.label) },
+                                )
+                            }
+                            // central spacer for the start FAB
+                            Box(modifier = Modifier.size(72.dp))
+                            val tabs2 = listOf(
+                                TabItem("squad", "Squad", Icons.Filled.Star),
+                                TabItem("you", "You", Icons.Filled.Person),
                             )
+                            tabs2.forEach { tab ->
+                                NavigationBarItem(
+                                    selected = currentRoute == tab.route,
+                                    onClick = { onTabSelected(tab.route) },
+                                    icon = { Icon(tab.icon, contentDescription = tab.label) },
+                                    label = { Text(tab.label) },
+                                )
+                            }
                         }
-                    }
-                },
-                floatingActionButton = {
-                    FloatingActionButton(
-                        onClick = { fabExpanded = !fabExpanded },
-                        containerColor = colors.crimsonPrimary,
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = "Start", tint = colors.textPrimary)
-                    }
-                },
-            )
+                    },
+                )
+            }
+        },
+        floatingActionButton = {
+            if (showBottomBar) {
+                FloatingActionButton(
+                    onClick = { fabExpanded = !fabExpanded },
+                    containerColor = colors.crimsonPrimary,
+                ) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = "Start",
+                        tint = colors.textPrimary,
+                    )
+                }
+            }
         },
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             content()
-            if (fabExpanded) {
+            if (showBottomBar && fabExpanded) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -108,9 +113,18 @@ fun MainScaffold(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    PhoenixIgnitionButton(text = "Start Scheduled", onClick = { fabExpanded = false; onStartScheduled() })
-                    PhoenixIgnitionButton(text = "Quick Workout", onClick = { fabExpanded = false; onQuickWorkout() })
-                    PhoenixIgnitionButton(text = "Host/Join Squad Session", onClick = { fabExpanded = false; onHostJoinSquad() })
+                    PhoenixIgnitionButton(
+                        text = "Start Scheduled",
+                        onClick = { fabExpanded = false; onStartScheduled() },
+                    )
+                    PhoenixIgnitionButton(
+                        text = "Quick Workout",
+                        onClick = { fabExpanded = false; onQuickWorkout() },
+                    )
+                    PhoenixIgnitionButton(
+                        text = "Host/Join Squad Session",
+                        onClick = { fabExpanded = false; onHostJoinSquad() },
+                    )
                 }
             }
         }

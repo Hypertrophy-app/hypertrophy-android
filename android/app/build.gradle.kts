@@ -57,6 +57,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:data"))
     implementation(project(":feature:workout"))
+    implementation(project(":feature:coach"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
