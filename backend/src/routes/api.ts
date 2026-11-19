@@ -58,7 +58,7 @@ const joinSquadSchema = z.object({
 export const apiRoutes = new Hono<AppEnv>();
 
 function newInviteCode(): string {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
 }
 
 async function ensureUser(db: ReturnType<typeof createDb>, userId: string): Promise<void> {

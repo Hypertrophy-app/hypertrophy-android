@@ -57,6 +57,9 @@ Modules:
 - `:core:vision` - CameraX preview plus `STRATEGY_KEEP_ONLY_LATEST` analysis, MediaPipe `PoseLandmarker` in `LIVE_STREAM` with GPU-to-CPU fallback, gold/crimson skeleton overlay, camera permission gate
 - `:feature:coach` - gym-distance HUD, offline TTS voice coach with transient audio-focus ducking, media-session music controls, full-screen rest ring, deterministic recap and Share to Squad
 - `:feature:workout` - exercise library, weekly planner, builder, substitution and reschedule engines, Health Connect hooks
+- `:feature:squad` - squad create/join with 6-character invite codes and `hypertrophy://join/<code>` deep links, Ktor WebSocket client to the `SquadRoomDO` durable object, live presence pills, stealth mode, group chat and workout-room hooks
+- `:feature:today` - customizable dashboard with reorderable, toggleable cards persisted in DataStore
+- `:feature:profile` - front/back muscle recovery map, 90-day consistency heatmap, PR trophy wall, badge gallery, Health Connect read/write
 
 Build and test:
 
@@ -69,8 +72,11 @@ cd android
 `compileSdk` and `targetSdk` are 35, `minSdk` is 26. The version catalog lives at
 `android/gradle/libs.versions.toml`. Unit tests cover the smart rescheduling
 engine and equipment substitution engine in `:feature:workout`, the synthetic
-pose kinematics suite in `:core:kinematics`, and the deterministic session
-recap in `:feature:coach`.
+pose kinematics suite in `:core:kinematics`, the deterministic session recap in
+`:feature:coach`, the session outbox builder and `SyncRepository` flush
+idempotency in `:core:data`, the dashboard layout rules in `:feature:today`,
+recovery and heatmap math in `:feature:profile`, and invite-code and presence
+parsing in `:feature:squad`.
 
 ### Dependency baseline note
 

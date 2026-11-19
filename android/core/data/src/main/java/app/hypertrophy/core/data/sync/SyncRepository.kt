@@ -12,7 +12,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
 import io.ktor.http.isSuccess
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
+import org.json.JSONTokener
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,7 +35,10 @@ class SyncRepository @Inject constructor(
                     .put("entityType", entry.entityType)
                     .put("entityId", entry.entityId)
                     .put("operation", entry.operation)
-                    .put("payload", entry.payloadJson)
+                    // The backend parses payload as a JSON object for typed
+                    // entities (workout_session); sending it as a string would
+                    // fail schema validation and silently drop the session.
+                    .put("payload", parsePayload(entry.payloadJson))
                     .put("createdAt", entry.createdAt),
             )
         }
@@ -52,5 +57,11 @@ class SyncRepository @Inject constructor(
             pending.forEach { workoutDao.markAttempt(it.id) }
             return 0
         }
+    }
+
+    private fun parsePayload(payloadJson: String): Any = try {
+        JSONTokener(payloadJson).nextValue()
+    } catch (_: JSONException) {
+        payloadJson
     }
 }

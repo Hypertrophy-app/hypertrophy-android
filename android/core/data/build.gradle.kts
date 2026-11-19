@@ -49,4 +49,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.org.json)
 }

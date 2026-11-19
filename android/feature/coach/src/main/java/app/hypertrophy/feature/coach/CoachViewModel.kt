@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hypertrophy.core.data.local.PersonalRecordEntity
 import app.hypertrophy.core.data.local.WorkoutDao
+import app.hypertrophy.core.data.sync.SessionOutboxBuilder
+import app.hypertrophy.core.data.sync.SessionSetInput
 import app.hypertrophy.core.kinematics.AutoSetRestDetector
 import app.hypertrophy.core.kinematics.BiomechanicalAnalyzer
 import app.hypertrophy.core.kinematics.CameraAim
@@ -103,6 +105,9 @@ class CoachViewModel @Inject constructor(
 
     private var restJob: Job? = null
 
+    /** Epoch millis of the first camera frame; anchors the session timeline. */
+    private var sessionStartedAtMs = 0L
+
     @Volatile
     private var restEndsAtMs = 0L
 
@@ -130,6 +135,10 @@ class CoachViewModel @Inject constructor(
         synchronized(lock) {
             val current = _state.value
             if (current.recap != null) return
+
+            if (sessionStartedAtMs == 0L) {
+                sessionStartedAtMs = System.currentTimeMillis()
+            }
 
             if (frame.landmarks.size < PoseLandmarks.COUNT) {
                 maybeAutoSet(frame)
@@ -312,6 +321,31 @@ class CoachViewModel @Inject constructor(
             historyStore.save(currentExerciseId, metrics)
             val recap = SessionRecapGenerator.generate(metrics, previousSession, newPr)
 
+            // Offline-first: Room is the source of truth and the outbox entry
+            // lets SyncWorker flush one batched payload per session to D1.
+            val built = SessionOutboxBuilder.build(
+                userId = LOCAL_USER_ID,
+                sessionId = UUID.randomUUID().toString(),
+                title = _state.value.exerciseName,
+                startedAt = sessionStartedAtMs.takeIf { it > 0L } ?: now,
+                endedAt = now,
+                sets = sets.map {
+                    SessionSetInput(
+                        exerciseId = currentExerciseId,
+                        reps = it.reps,
+                        weightKg = it.weightKg,
+                        romPercent = it.romPercent,
+                        tempoLabel = it.tempoLabel,
+                        formScore = it.formScore,
+                    )
+                },
+                avgFormScore = sets.map { it.formScore }.average(),
+                aiRecapText = recap.shareText,
+                createdAt = now,
+            )
+            workoutDao.upsertSession(built.session)
+            workoutDao.enqueueOutbox(built.outboxEntry)
+
             restJob?.cancel()
             restJob = null
             _state.update {
@@ -330,6 +364,7 @@ class CoachViewModel @Inject constructor(
         synchronized(lock) {
             completedSets.clear()
             repTempos.clear()
+            sessionStartedAtMs = 0L
             formScore = 100
             cueCount = 0
             formCue = null
