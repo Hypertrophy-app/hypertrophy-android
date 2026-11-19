@@ -1,7 +1,8 @@
 CLERK_SECRET_KEY=sk_test_replace_me
 CLERK_PUBLISHABLE_KEY=pk_test_replace_me
-# JWT verification key from Clerk Dashboard > API Keys > JWT verification.
-# Paste the PEM block on one line with literal \n separators, e.g.
-# CLERK_JWT_KEY=-----BEGIN PUBLIC KEY-----\nMIIBIjANBg...\n-----END PUBLIC KEY-----
-CLERK_JWT_KEY=replace_with_pem_on_one_line
+# JWT verification key from Clerk Dashboard > API Keys > Show JWT public key
+# (PEM Public Key section). loadClerkJwkFromPem strips newlines, so the whole
+# PEM may be pasted on a single line: -----BEGIN PUBLIC KEY-----<body>-----END PUBLIC KEY-----
+# Do NOT use literal \n separators -- they are not stripped and corrupt the key.
+CLERK_JWT_KEY=-----BEGIN PUBLIC KEY-----replace_with_base64_body-----END PUBLIC KEY-----
 CLERK_AUTHORIZED_PARTIES=http://localhost:8787
