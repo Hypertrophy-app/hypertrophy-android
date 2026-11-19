@@ -1,5 +1,8 @@
 package app.hypertrophy.core.data.di
 
+import app.hypertrophy.core.data.network.AuthSessionStore
+import app.hypertrophy.core.data.network.AuthTokenPlugin
+import app.hypertrophy.core.data.network.TokenProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,8 +20,15 @@ import kotlinx.serialization.json.Json
 object NetworkModule {
     @Provides
     @Singleton
-    fun provideHttpClient(): HttpClient = HttpClient(OkHttp) {
+    fun provideTokenProvider(): TokenProvider = TokenProvider { AuthSessionStore.token }
+
+    @Provides
+    @Singleton
+    fun provideHttpClient(tokenProvider: TokenProvider): HttpClient = HttpClient(OkHttp) {
         expectSuccess = false
+        install(AuthTokenPlugin) {
+            this.tokenProvider = tokenProvider
+        }
         install(ContentNegotiation) {
             json(
                 Json {

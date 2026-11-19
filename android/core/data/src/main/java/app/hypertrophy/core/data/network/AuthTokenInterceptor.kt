@@ -14,6 +14,16 @@ fun interface TokenProvider {
     suspend fun currentToken(): String?
 }
 
+/**
+ * Holds the active session JWT. Clerk sign-in (app layer) writes it and
+ * [AuthTokenPlugin] reads it at request time, including WebSocket handshakes.
+ * Null while signed out, which makes callers send no Authorization header.
+ */
+object AuthSessionStore {
+    @Volatile
+    var token: String? = null
+}
+
 class AuthTokenConfig {
     lateinit var tokenProvider: TokenProvider
 }

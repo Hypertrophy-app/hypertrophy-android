@@ -1,6 +1,7 @@
 package app.hypertrophy.feature.squad
 
-import io.ktor.client.HttpClient
+import app.hypertrophy.core.data.network.TokenProvider
+import app.hypertrophy.core.data.network.createAuthenticatedHttpClient
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.Frame
@@ -18,9 +19,12 @@ import kotlinx.serialization.serializer
 
 class SquadWebSocketClient(
     private val baseUrl: String,
+    tokenProvider: TokenProvider,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val client = HttpClient {
+    // AuthTokenPlugin attaches the Clerk JWT to the handshake; the backend
+    // verifies it with requireAuth before upgrading the socket.
+    private val client = createAuthenticatedHttpClient(tokenProvider) {
         install(WebSockets)
     }
 
@@ -66,7 +70,7 @@ class SquadWebSocketClient(
     }
 
     fun chat(body: String) {
-        send("""{"type":"CHAT_MESSAGE","body":${Json.encodeToString(kotlinx.serialization.serializer<String>(), body)}}""")
+        send("""{"type":"CHAT_MESSAGE","body":${Json.encodeToString(serializer<String>(), body)}}""")
     }
 
     fun disconnect() {

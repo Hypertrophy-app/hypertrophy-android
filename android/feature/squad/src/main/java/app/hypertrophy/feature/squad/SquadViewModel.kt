@@ -2,8 +2,9 @@ package app.hypertrophy.feature.squad
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.hypertrophy.core.data.network.TokenProvider
+import app.hypertrophy.core.data.network.createAuthenticatedHttpClient
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
@@ -41,8 +42,10 @@ data class SquadUiState(
 )
 
 @HiltViewModel
-class SquadViewModel @Inject constructor() : ViewModel() {
-    private val client = HttpClient {
+class SquadViewModel @Inject constructor(
+    private val tokenProvider: TokenProvider,
+) : ViewModel() {
+    private val client = createAuthenticatedHttpClient(tokenProvider) {
         install(ContentNegotiation) { json() }
     }
 
@@ -79,7 +82,7 @@ class SquadViewModel @Inject constructor() : ViewModel() {
     fun selectSquad(squadId: String, userId: String) {
         _state.value = _state.value.copy(selectedSquadId = squadId)
         socket?.disconnect()
-        socket = SquadWebSocketClient("wss://api.hypertrophy.app")
+        socket = SquadWebSocketClient("wss://api.hypertrophy.app", tokenProvider)
         socket?.connect(squadId, userId)
         viewModelScope.launch {
             socket?.incoming?.collect { text ->
