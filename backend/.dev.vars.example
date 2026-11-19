@@ -1,3 +1,7 @@
 CLERK_SECRET_KEY=sk_test_replace_me
 CLERK_PUBLISHABLE_KEY=pk_test_replace_me
+# JWT verification key from Clerk Dashboard > API Keys > JWT verification.
+# Paste the PEM block on one line with literal \n separators, e.g.
+# CLERK_JWT_KEY=-----BEGIN PUBLIC KEY-----\nMIIBIjANBg...\n-----END PUBLIC KEY-----
+CLERK_JWT_KEY=replace_with_pem_on_one_line
 CLERK_AUTHORIZED_PARTIES=http://localhost:8787
