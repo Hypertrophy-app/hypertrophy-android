@@ -160,6 +160,28 @@ apiRoutes.post("/sync", async (c) => {
 });
 
 // Squad management
+apiRoutes.get("/squads", async (c) => {
+  const db = createDb(c.env.DB);
+  const userId = c.get("userId");
+
+  const rows = await db
+    .select({
+      id: squads.id,
+      name: squads.name,
+      ownerId: squads.ownerId,
+      createdAt: squads.createdAt,
+      inviteCode: squads.inviteCode,
+      role: squadMembers.role,
+    })
+    .from(squadMembers)
+    .innerJoin(squads, eq(squads.id, squadMembers.squadId))
+    .where(eq(squadMembers.userId, userId))
+    .orderBy(desc(squads.createdAt))
+    .limit(50);
+
+  return c.json({ squads: rows });
+});
+
 apiRoutes.post("/squads", async (c) => {
   const parsed = createSquadSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {

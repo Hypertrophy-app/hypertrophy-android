@@ -1,6 +1,7 @@
 package app.hypertrophy.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,11 +21,21 @@ import app.hypertrophy.feature.workout.WorkoutRoute
 import app.hypertrophy.home.HomeScreen
 
 @Composable
-fun HypertrophyApp() {
+fun HypertrophyApp(initialInviteCode: String? = null) {
     val navController: NavHostController = rememberNavController()
     var currentTab by remember { mutableStateOf("today") }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val showChrome = backStackEntry?.destination?.route?.startsWith("coach") != true
+
+    // hypertrophy://join/<CODE> deep links land here from MainActivity.
+    LaunchedEffect(initialInviteCode) {
+        if (!initialInviteCode.isNullOrBlank()) {
+            currentTab = "squad"
+            navController.navigate("join/${initialInviteCode.uppercase()}") {
+                launchSingleTop = true
+            }
+        }
+    }
 
     MainScaffold(
         currentRoute = currentTab,
@@ -66,7 +77,7 @@ fun HypertrophyApp() {
                 arguments = listOf(navArgument("code") { type = NavType.StringType }),
             ) { entry ->
                 val code = entry.arguments?.getString("code").orEmpty()
-                SquadRoute()
+                SquadRoute(initialInviteCode = code)
             }
         }
     }

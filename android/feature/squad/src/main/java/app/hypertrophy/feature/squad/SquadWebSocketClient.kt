@@ -36,12 +36,15 @@ class SquadWebSocketClient(
     @Volatile
     private var running = false
 
-    fun connect(squadId: String, userId: String) {
+    fun connect(squadId: String) {
         if (running) return
         running = true
         scope.launch {
             try {
-                client.webSocket("$baseUrl/rooms/$squadId?userId=$userId&squadId=$squadId") {
+                // Identity comes from the verified JWT (the backend replaces any
+                // userId query param with the token's sub before it reaches the
+                // durable object).
+                client.webSocket("$baseUrl/rooms/$squadId?squadId=$squadId") {
                     launch {
                         for (msg in sendChannel) {
                             send(Frame.Text(msg))

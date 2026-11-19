@@ -36,6 +36,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import app.hypertrophy.core.data.squad.SquadLiveBus
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -556,12 +558,61 @@ private fun CoachHud(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        TeammateTicker()
+
         MusicChip(
             music = state.music,
             onToggle = onToggleMusic,
             onNext = onNextTrack,
             onOpenSettings = onOpenMusicSettings,
         )
+    }
+}
+
+/**
+ * Live teammate progress relayed from the squad room through [SquadLiveBus].
+ * Entries expire after [SquadLiveBus.MAX_AGE_MILLIS] so a finished set never
+ * lingers in the HUD.
+ */
+@Composable
+private fun TeammateTicker() {
+    val colors = LocalPhoenixColors.current
+    val progress by SquadLiveBus.teammateProgress.collectAsStateWithLifecycle()
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(5_000L)
+            now = System.currentTimeMillis()
+        }
+    }
+
+    val fresh = progress.values
+        .filter { now - it.at <= SquadLiveBus.MAX_AGE_MILLIS }
+        .sortedByDescending { it.at }
+    if (fresh.isEmpty()) return
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "SQUAD LIVE",
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.textSecondary,
+        )
+        fresh.forEach { teammate ->
+            Text(
+                text = buildString {
+                    append(teammate.userId)
+                    append(" set ")
+                    append(teammate.setIndex + 1)
+                    append(" | ")
+                    append(formatWeight(teammate.weightKg))
+                    append(" kg x ")
+                    append(teammate.reps)
+                    if (teammate.isPr) append(" PR")
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (teammate.isPr) colors.solarGold else colors.textPrimary,
+            )
+        }
     }
 }
 

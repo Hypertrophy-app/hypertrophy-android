@@ -1,5 +1,6 @@
 package app.hypertrophy
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,8 +14,25 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             HypertrophyTheme {
-                HypertrophyApp()
+                HypertrophyApp(initialInviteCode = inviteCodeFrom(intent))
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Activity is recreated via composition when the caller re-enters with
+        // a new deep link; reading the latest intent keeps join links working
+        // without a navigation reset.
+        setIntent(intent)
+    }
+
+    companion object {
+        /** Extracts the code from `hypertrophy://join/<CODE>` URIs. */
+        fun inviteCodeFrom(intent: Intent?): String? {
+            val data = intent?.data ?: return null
+            if (data.scheme != "hypertrophy" || data.host != "join") return null
+            return data.lastPathSegment?.takeIf { it.isNotBlank() }
         }
     }
 }
