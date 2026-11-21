@@ -92,6 +92,17 @@ squadRoutes.post("/:squadId/messages", async (c) => {
 
 squadRoutes.get("/:squadId/messages", async (c) => {
   const squadId = c.req.param("squadId");
+  const db = createDb(c.env.DB);
+  const membership = await db
+    .select({ role: squadMembers.role })
+    .from(squadMembers)
+    .where(and(eq(squadMembers.squadId, squadId), eq(squadMembers.userId, c.get("userId"))))
+    .limit(1);
+
+  if (membership.length === 0) {
+    return c.json({ error: "not_a_squad_member" }, 403);
+  }
+
   const stub = c.env.SQUAD_ROOM.get(c.env.SQUAD_ROOM.idFromName(squadId));
   return stub.fetch(`https://squad-room.internal/messages?squadId=${encodeURIComponent(squadId)}`, { method: "GET" });
 });

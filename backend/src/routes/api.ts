@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -11,6 +11,7 @@ import {
   workoutSessions,
 } from "../db/schema";
 import type { Env } from "../env";
+import { buildMilestoneCards } from "../milestones";
 import type { AuthVariables } from "../middleware/auth";
 
 type AppEnv = { Bindings: Env; Variables: AuthVariables };
@@ -86,77 +87,199 @@ apiRoutes.post("/sync", async (c) => {
   const now = Date.now();
   await ensureUser(db, userId);
 
+  const entries = parsed.data.entries;
   const synced: string[] = [];
   const failed: { id: string; error: string }[] = [];
 
+  // Parse session payloads up front so squad membership and PR history can be
+  // loaded with a fixed number of reads instead of one query per entry.
+  const parsedSessions = new Map<string, z.infer<typeof sessionPayloadSchema>>();
+  for (const entry of entries) {
+    if (entry.entityType !== "workout_session") continue;
+    const sessionParsed = sessionPayloadSchema.safeParse(entry.payload);
+    if (!sessionParsed.success) {
+      failed.push({ id: entry.id, error: "invalid_session_payload" });
+      continue;
+    }
+    parsedSessions.set(entry.id, sessionParsed.data);
+  }
+
+  // A client-supplied squadId is only trusted when the authenticated user is
+  // actually a member; otherwise the session is stored without a squad.
+  const requestedSquadIds = [
+    ...new Set(
+      [...parsedSessions.values()]
+        .map((session) => session.squadId)
+        .filter((squadId): squadId is string => typeof squadId === "string" && squadId.length > 0),
+    ),
+  ];
+  const memberSquadIds = new Set<string>();
+  if (requestedSquadIds.length > 0) {
+    const membershipRows = await db
+      .select({ squadId: squadMembers.squadId })
+      .from(squadMembers)
+      .where(and(eq(squadMembers.userId, userId), inArray(squadMembers.squadId, requestedSquadIds)));
+    for (const row of membershipRows) {
+      memberSquadIds.add(row.squadId);
+    }
+  }
+
+  const incomingSessionIds = [
+    ...new Set([...parsedSessions.values()].map((session) => session.id)),
+  ];
+
+  const pendingCards: { squadId: string; userId: string; body: string }[] = [];
+  if (memberSquadIds.size > 0) {
+    // Milestone idempotency: a retried sync reuses the outbox entry id, so an
+    // id that is already persisted means the cards were already emitted.
+    const priorOutboxRows = await db
+      .select({ id: syncOutbox.id })
+      .from(syncOutbox)
+      .where(inArray(syncOutbox.id, entries.map((entry) => entry.id)));
+    const alreadySyncedEntryIds = new Set(priorOutboxRows.map((row) => row.id));
+
+    // Defensive second guard: a session that already exists (for example it
+    // was written by POST /v1/workouts/sessions) must not produce cards again.
+    const existingSessionIds = new Set<string>();
+    if (incomingSessionIds.length > 0) {
+      const existingRows = await db
+        .select({ id: workoutSessions.id })
+        .from(workoutSessions)
+        .where(inArray(workoutSessions.id, incomingSessionIds));
+      for (const row of existingRows) {
+        existingSessionIds.add(row.id);
+      }
+    }
+
+    // Sync writes are batched, so the incoming rows are invisible to this
+    // query. Excluding every incoming session id also stops an entry from
+    // being compared against itself when one payload contains several
+    // sessions. Bounded to recent history to keep the read cheap.
+    const historyRows = await db
+      .select({ setsJson: workoutSessions.setsJson })
+      .from(workoutSessions)
+      .where(
+        incomingSessionIds.length > 0
+          ? and(eq(workoutSessions.userId, userId), notInArray(workoutSessions.id, incomingSessionIds))
+          : eq(workoutSessions.userId, userId),
+      )
+      .orderBy(desc(workoutSessions.createdAt))
+      .limit(500);
+    const priorSetsJson = historyRows.map((row) => row.setsJson);
+
+    const [userRow] = await db
+      .select({ displayName: users.displayName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    const displayName = userRow?.displayName?.trim() || userId;
+
+    for (const [entryId, session] of parsedSessions) {
+      const squadId =
+        session.squadId && memberSquadIds.has(session.squadId) ? session.squadId : null;
+      if (!squadId) continue;
+      if (alreadySyncedEntryIds.has(entryId) || existingSessionIds.has(session.id)) continue;
+
+      const cards = buildMilestoneCards({
+        displayName,
+        sessionTitle: session.title,
+        sets: session.sets,
+        priorSetsJson,
+      });
+      for (const card of cards) {
+        pendingCards.push({ squadId, userId: card.userId, body: card.body });
+      }
+    }
+  }
+
   const statements: any[] = [];
-  for (const entry of parsed.data.entries) {
-    try {
-      // Always record the outbox entry idempotently.
+  for (const entry of entries) {
+    // Always record the outbox entry idempotently.
+    statements.push(
+      db
+        .insert(syncOutbox)
+        .values({
+          id: entry.id,
+          userId,
+          entityType: entry.entityType,
+          entityId: entry.entityId,
+          operation: entry.operation,
+          payloadJson: JSON.stringify(entry.payload ?? null),
+          createdAt: entry.createdAt,
+        })
+        .onConflictDoNothing(),
+    );
+
+    if (entry.entityType === "workout_session") {
+      const session = parsedSessions.get(entry.id);
+      if (!session) continue; // Already reported in `failed`.
+
+      const squadId =
+        session.squadId && memberSquadIds.has(session.squadId) ? session.squadId : null;
+      const endedAt = session.endedAt ?? session.completedAt ?? session.startedAt;
+      const totalVolumeKg = Math.round(
+        session.sets.reduce((sum, set) => sum + set.reps * set.weightKg, 0),
+      );
       statements.push(
         db
-          .insert(syncOutbox)
+          .insert(workoutSessions)
           .values({
-            id: entry.id,
+            id: session.id,
             userId,
-            entityType: entry.entityType,
-            entityId: entry.entityId,
-            operation: entry.operation,
-            payloadJson: JSON.stringify(entry.payload ?? null),
-            createdAt: entry.createdAt,
+            squadId,
+            title: session.title,
+            startedAt: session.startedAt,
+            endedAt,
+            totalVolumeKg,
+            setsJson: JSON.stringify(session.sets),
+            createdAt: now,
           })
-          .onConflictDoNothing(),
-      );
-
-      if (entry.entityType === "workout_session") {
-        const sessionParsed = sessionPayloadSchema.safeParse(entry.payload);
-        if (!sessionParsed.success) {
-          failed.push({ id: entry.id, error: "invalid_session_payload" });
-          continue;
-        }
-        const session = sessionParsed.data;
-        const endedAt = session.endedAt ?? session.completedAt ?? session.startedAt;
-        const totalVolumeKg = Math.round(
-          session.sets.reduce((sum, set) => sum + set.reps * set.weightKg, 0),
-        );
-        statements.push(
-          db
-            .insert(workoutSessions)
-            .values({
-              id: session.id,
-              userId,
-              squadId: session.squadId ?? null,
+          .onConflictDoUpdate({
+            target: workoutSessions.id,
+            set: {
               title: session.title,
               startedAt: session.startedAt,
               endedAt,
               totalVolumeKg,
               setsJson: JSON.stringify(session.sets),
-              createdAt: now,
-            })
-            .onConflictDoUpdate({
-              target: workoutSessions.id,
-              set: {
-                title: session.title,
-                startedAt: session.startedAt,
-                endedAt,
-                totalVolumeKg,
-                setsJson: JSON.stringify(session.sets),
-              },
-            }),
-        );
-      }
-
-      synced.push(entry.id);
-    } catch (error) {
-      failed.push({ id: entry.id, error: String(error) });
+            },
+          }),
+      );
     }
+
+    synced.push(entry.id);
   }
 
   if (statements.length > 0) {
     await db.batch(statements as any);
   }
 
-  return c.json({ synced, failed, syncedAt: now });
+  // Milestone cards are best-effort: a Durable Object hiccup must never fail
+  // an otherwise durable sync, so errors are logged and swallowed.
+  const milestones: string[] = [];
+  for (const card of pendingCards) {
+    try {
+      const stub = c.env.SQUAD_ROOM.get(c.env.SQUAD_ROOM.idFromName(card.squadId));
+      const response = await stub.fetch("https://squad-room.internal/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          squadId: card.squadId,
+          userId: card.userId,
+          body: card.body,
+        }),
+      });
+      if (!response.ok) {
+        console.error("milestone_post_failed", card.squadId, response.status);
+        continue;
+      }
+      milestones.push(card.body);
+    } catch (error) {
+      console.error("milestone_post_failed", card.squadId, String(error));
+    }
+  }
+
+  return c.json({ synced, failed, milestones, syncedAt: now });
 });
 
 // Squad management

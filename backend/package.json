@@ -10,6 +10,7 @@
     "db:migrate:local": "wrangler d1 migrations apply hypertrophy-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply hypertrophy-db --remote",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "verify": "tsc --noEmit && wrangler deploy --dry-run"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
     "@types/node": "^24.19.2",
     "drizzle-kit": "^0.31.11",
     "typescript": "^5.9.3",
+    "vitest": "^5.1.1",
     "wrangler": "^4.162.0"
   },
   "allowScripts": {

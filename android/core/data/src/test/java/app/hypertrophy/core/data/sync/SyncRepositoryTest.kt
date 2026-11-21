@@ -26,6 +26,33 @@ private class FakeWorkoutDao(initial: List<SyncOutboxEntity> = emptyList()) : Wo
 
     override fun observeSessions(userId: String): Flow<List<WorkoutSessionEntity>> = flowOf(emptyList())
 
+    override fun observeSessionsSince(
+        userId: String,
+        sinceMillis: Long,
+    ): Flow<List<WorkoutSessionEntity>> = flowOf(emptyList())
+
+    override fun observeSessionsBetween(
+        userId: String,
+        fromMillis: Long,
+        toMillis: Long,
+    ): Flow<List<WorkoutSessionEntity>> = flowOf(emptyList())
+
+    override fun observeSessionCountSince(userId: String, sinceMillis: Long): Flow<Int> = flowOf(0)
+
+    override fun observeTotalVolumeSince(userId: String, sinceMillis: Long): Flow<Double> = flowOf(0.0)
+
+    override suspend fun latestSession(userId: String): WorkoutSessionEntity? = null
+
+    override fun observeRecentSessions(
+        userId: String,
+        limit: Int,
+    ): Flow<List<WorkoutSessionEntity>> = flowOf(emptyList())
+
+    override suspend fun recentSessions(userId: String, limit: Int): List<WorkoutSessionEntity> = emptyList()
+
+    override fun observePersonalRecords(userId: String): Flow<List<PersonalRecordEntity>> =
+        flowOf(emptyList())
+
     override suspend fun findSession(id: String): WorkoutSessionEntity? = null
 
     override suspend fun findPersonalRecord(userId: String, exerciseId: String): PersonalRecordEntity? = null

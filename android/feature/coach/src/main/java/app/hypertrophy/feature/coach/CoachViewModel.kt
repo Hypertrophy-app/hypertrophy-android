@@ -2,7 +2,6 @@ package app.hypertrophy.feature.coach
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.hypertrophy.core.data.local.PersonalRecordEntity
 import app.hypertrophy.core.data.local.WorkoutDao
 import app.hypertrophy.core.data.sync.SessionOutboxBuilder
 import app.hypertrophy.core.data.sync.SessionSetInput
@@ -23,6 +22,7 @@ import app.hypertrophy.core.kinematics.TempoSnapshot
 import app.hypertrophy.core.kinematics.analyzerFor
 import app.hypertrophy.feature.coach.music.MusicController
 import app.hypertrophy.feature.coach.music.MusicState
+import app.hypertrophy.feature.coach.recap.PersonalRecordMath
 import app.hypertrophy.feature.coach.recap.SessionHistoryStore
 import app.hypertrophy.feature.coach.recap.SessionMetrics
 import app.hypertrophy.feature.coach.recap.SessionRecap
@@ -282,8 +282,13 @@ class CoachViewModel @Inject constructor(
             val reps = sets.sumOf { it.reps }
             val avgRom = sets.map { it.romPercent }.average().toFloat()
             val topWeight = sets.maxOf { it.weightKg }
-            val bestSet = sets.maxByOrNull { it.weightKg * (1.0 + it.reps / 30.0) }!!
-            val estimated1Rm = bestSet.weightKg * (1.0 + bestSet.reps / 30.0)
+            val bestSet = sets.maxByOrNull {
+                PersonalRecordMath.estimateOneRepMax(it.weightKg, it.reps)
+            }!!
+            val estimated1Rm = PersonalRecordMath.estimateOneRepMax(
+                bestSet.weightKg,
+                bestSet.reps,
+            )
             val metrics = SessionMetrics(
                 exerciseName = _state.value.exerciseName,
                 sets = sets.size,
@@ -298,21 +303,20 @@ class CoachViewModel @Inject constructor(
             )
 
             val previousPr = workoutDao.findPersonalRecord(LOCAL_USER_ID, currentExerciseId)
-            val newPr = previousPr != null &&
-                (topWeight > previousPr.maxWeightKg ||
-                    estimated1Rm > previousPr.estimated1rm)
+            val newPr = PersonalRecordMath.isNewRecord(previousPr, topWeight, estimated1Rm)
 
             val now = System.currentTimeMillis()
             if (previousPr == null || newPr) {
                 workoutDao.upsertPersonalRecord(
-                    PersonalRecordEntity(
-                        id = previousPr?.id ?: UUID.randomUUID().toString(),
+                    PersonalRecordMath.merge(
+                        previous = previousPr,
                         userId = LOCAL_USER_ID,
                         exerciseId = currentExerciseId,
-                        maxWeightKg = maxOf(topWeight, previousPr?.maxWeightKg ?: 0.0),
-                        maxReps = maxOf(sets.maxOf { it.reps }, previousPr?.maxReps ?: 0),
-                        estimated1rm = maxOf(estimated1Rm, previousPr?.estimated1rm ?: 0.0),
-                        achievedAt = now,
+                        topWeightKg = topWeight,
+                        topReps = sets.maxOf { it.reps },
+                        estimated1Rm = estimated1Rm,
+                        achievedAtMillis = now,
+                        newId = UUID.randomUUID().toString(),
                     ),
                 )
             }

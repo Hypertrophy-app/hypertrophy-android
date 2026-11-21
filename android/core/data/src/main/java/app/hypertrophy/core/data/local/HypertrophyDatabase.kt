@@ -23,4 +23,6 @@ import androidx.room.RoomDatabase
 abstract class HypertrophyDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
     abstract fun trainingDao(): TrainingDao
+    abstract fun userDao(): UserDao
+    abstract fun squadDao(): SquadDao
 }
