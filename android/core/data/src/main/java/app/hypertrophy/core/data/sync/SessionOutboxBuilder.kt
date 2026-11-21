@@ -50,9 +50,9 @@ data class LocalSetRecord(
     val exerciseId: String,
     val reps: Int,
     val weightKg: Double,
-    val romPercent: Float,
-    val tempoLabel: String,
-    val formScore: Int,
+    val romPercent: Float = 0f,
+    val tempoLabel: String = "",
+    val formScore: Int = 100,
 )
 
 /**
@@ -64,7 +64,12 @@ object SessionOutboxBuilder {
     const val ENTITY_TYPE = "workout_session"
     const val OPERATION = "create"
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        // Coaching defaults are real payload values, not optional wire noise:
+        // keep them so legacy parsing and local recaps see the full set row.
+        encodeDefaults = true
+    }
 
     fun build(
         userId: String,

@@ -1,15 +1,28 @@
 package app.hypertrophy.core.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/** A personal record joined with the display name and muscle of its exercise. */
+data class PersonalRecordWithExercise(
+    @Embedded val record: PersonalRecordEntity,
+    @ColumnInfo(name = "exercise_name") val exerciseName: String,
+    @ColumnInfo(name = "primary_muscle") val primaryMuscle: String,
+)
+
 @Dao
 interface WorkoutDao {
     @Query("SELECT * FROM workout_sessions WHERE user_id = :userId ORDER BY created_at DESC")
     fun observeSessions(userId: String): Flow<List<WorkoutSessionEntity>>
+
+    /** Completion timestamps for the current streak, independent of history windows. */
+    @Query("SELECT created_at FROM workout_sessions WHERE user_id = :userId")
+    fun observeSessionTimestamps(userId: String): Flow<List<Long>>
 
     /**
      * History window for the Today dashboard and Profile feed. [sinceMillis] is
@@ -64,6 +77,26 @@ interface WorkoutDao {
     /** All PR rows for the profile PR board, newest achievement first. */
     @Query("SELECT * FROM personal_records WHERE user_id = :userId ORDER BY achieved_at DESC")
     fun observePersonalRecords(userId: String): Flow<List<PersonalRecordEntity>>
+
+    /**
+     * PR board with exercise names. Uses an INNER JOIN so an unseeded catalogue
+     * cannot produce a row without a label; both screens seed on first launch.
+     */
+    @Query(
+        """
+        SELECT personal_records.*, exercises.name AS exercise_name,
+               exercises.primary_muscle AS primary_muscle
+        FROM personal_records
+        INNER JOIN exercises ON exercises.id = personal_records.exercise_id
+        WHERE personal_records.user_id = :userId
+        ORDER BY personal_records.achieved_at DESC
+        LIMIT :limit
+        """,
+    )
+    fun observePersonalRecordBoard(
+        userId: String,
+        limit: Int,
+    ): Flow<List<PersonalRecordWithExercise>>
 
     @Query(
         "SELECT * FROM personal_records WHERE user_id = :userId AND exercise_id = :exerciseId " +

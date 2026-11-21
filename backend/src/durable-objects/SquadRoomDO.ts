@@ -40,6 +40,9 @@ interface SocketAttachment {
 
 const MAX_MESSAGES = 100;
 
+/** A lobby older than this no longer blocks a new host. */
+const SESSION_STALE_MS = 6 * 60 * 60 * 1000;
+
 /**
  * SQLite-backed Durable Object that serializes all writes for one squad room.
  * Uses the WebSocket Hibernation API so idle sockets cost zero compute.
@@ -165,6 +168,37 @@ export class SquadRoomDO extends DurableObject<Env> {
         // ignore
       }
 
+      // Late joiners need the current lobby even when it was created before
+      // they connected. Replaying create/start also rebuilds the queue UI.
+      const session = await this.getSessionState(squadId);
+      if (session) {
+        try {
+          server.send(
+            JSON.stringify({
+              type: "HOST_SESSION_CREATE",
+              hostUserId: session.hostUserId,
+              queue: session.queue,
+              restSeconds: session.restSeconds,
+              createdAt: session.createdAt,
+            }),
+          );
+          if (session.startedAt !== null) {
+            server.send(
+              JSON.stringify({
+                type: "HOST_SESSION_START",
+                hostUserId: session.hostUserId,
+                queue: session.queue,
+                restSeconds: session.restSeconds,
+                createdAt: session.createdAt,
+                startedAt: session.startedAt,
+              }),
+            );
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       // Announce presence.
       const presence: PresencePayload = {
         type: "PRESENCE_UPDATE",
@@ -286,6 +320,15 @@ export class SquadRoomDO extends DurableObject<Env> {
       }
 
       case "HOST_SESSION_CREATE": {
+        const existing = await this.getSessionState(attachment.squadId);
+        if (
+          existing &&
+          existing.hostUserId !== attachment.userId &&
+          now - existing.createdAt < SESSION_STALE_MS
+        ) {
+          socket.send(JSON.stringify({ type: "error", error: "session_exists" }));
+          return;
+        }
         const queue = Array.isArray(parsed.queue) ? (parsed.queue as SessionExercise[]) : [];
         const restSeconds = typeof parsed.restSeconds === "number" ? parsed.restSeconds : 90;
         const state: HostSessionState = {
@@ -320,6 +363,10 @@ export class SquadRoomDO extends DurableObject<Env> {
         await this.setSessionState(attachment.squadId, state);
         this.broadcast({
           type: "HOST_SESSION_START",
+          hostUserId: state.hostUserId,
+          queue: state.queue,
+          restSeconds: state.restSeconds,
+          createdAt: state.createdAt,
           startedAt: now,
         });
         break;

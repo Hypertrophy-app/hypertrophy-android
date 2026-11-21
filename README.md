@@ -36,7 +36,18 @@ migration with `npm run db:migrate:remote`. Set `CLERK_SECRET_KEY`,
 
 Squad chat is serialized through `SQUAD_ROOM`, a SQLite-backed Durable Object.
 Completed sessions are uploaded as one JSON payload per session, keeping D1
-writes well inside the free tier.
+writes well inside the free tier. Each synced squad session also emits at most
+two system chat cards (session completion plus the biggest PR) through the
+Durable Object, with idempotent outbox replay protection.
+
+Backend verification:
+
+```powershell
+cd backend
+npm test
+npx tsc --noEmit
+npx wrangler deploy --dry-run
+```
 
 ## Android
 
@@ -57,9 +68,9 @@ Modules:
 - `:core:vision` - CameraX preview plus `STRATEGY_KEEP_ONLY_LATEST` analysis, MediaPipe `PoseLandmarker` in `LIVE_STREAM` with GPU-to-CPU fallback, gold/crimson skeleton overlay, camera permission gate
 - `:feature:coach` - gym-distance HUD, offline TTS voice coach with transient audio-focus ducking, media-session music controls, full-screen rest ring, deterministic recap and Share to Squad
 - `:feature:workout` - exercise library, weekly planner, builder, substitution and reschedule engines, Health Connect hooks
-- `:feature:squad` - squad create/join with 6-character invite codes and `hypertrophy://join/<code>` deep links, Ktor WebSocket client to the `SquadRoomDO` durable object, live presence pills, stealth mode, group chat and workout-room hooks
-- `:feature:today` - customizable dashboard with reorderable, toggleable cards persisted in DataStore
-- `:feature:profile` - front/back muscle recovery map, 90-day consistency heatmap, PR trophy wall, badge gallery, Health Connect read/write
+- `:feature:squad` - squad create/join with 6-character invite codes and `hypertrophy://join/<code>` deep links, Room-backed offline squad cache, Ktor WebSocket client to the `SquadRoomDO` durable object, live presence pills, stealth mode, workout-together host lobby, group chat and system milestone cards
+- `:feature:today` - customizable dashboard with reorderable, toggleable cards persisted in DataStore, real streak/week stats, challenges, squad live ticker, and per-muscle recovery
+- `:feature:profile` - real front/back muscle recovery map, 90-day consistency heatmap, PR trophy wall, estimated-1RM progression chart, persisted badge gallery, and Health Connect permission/export controls
 
 Build and test:
 
@@ -72,11 +83,30 @@ cd android
 `compileSdk` and `targetSdk` are 35, `minSdk` is 26. The version catalog lives at
 `android/gradle/libs.versions.toml`. Unit tests cover the smart rescheduling
 engine and equipment substitution engine in `:feature:workout`, the synthetic
-pose kinematics suite in `:core:kinematics`, the deterministic session recap in
-`:feature:coach`, the session outbox builder and `SyncRepository` flush
-idempotency in `:core:data`, the dashboard layout rules in `:feature:today`,
-recovery and heatmap math in `:feature:profile`, and invite-code and presence
-parsing in `:feature:squad`.
+pose kinematics suite in `:core:kinematics`, the deterministic session recap
+and PR math in `:feature:coach`, the session outbox builder and `SyncRepository`
+flush idempotency plus squad refresh rules in `:core:data`, the dashboard layout
+and insight math in `:feature:today`, recovery/progression/badge math and the
+Health Connect session export contract in `:feature:profile`, squad wire
+parsing, host-lobby codecs, cache mapping, invite-code and presence parsing in
+`:feature:squad`, GPU-to-CPU pose fallback in `:core:vision`, and the milestone
+card/auth middleware contracts in `backend`.
+
+### Current gaps
+
+- Clerk sign-in is not initialized in the Android app until the platform
+  baseline supports the catalog-pinned Clerk release. Local data is therefore
+  stored under `local-user`; network requests still require a valid backend JWT.
+- Firebase Cloud Messaging is not configured, so squad invites are delivered by
+  invite code or deep link rather than push notifications. This avoids adding a
+  paid cloud dependency to an otherwise local-first stack.
+- Health Connect export is user-triggered from Profile. Exports are idempotent
+  (session-derived `clientRecordId`), but no background export worker runs yet.
+- The instrumentation (`androidTest`) lane is not executed because the build
+  environment has no emulator. JVM unit tests, `testDebugUnitTest`, and
+  `assembleDebug` are the enforced Android gates.
+- SceneView remains catalog-only until `compileSdk 37`; `ExerciseFormViewer`
+  keeps a hardware-free preview contract in the meantime.
 
 ### Dependency baseline note
 

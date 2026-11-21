@@ -1,5 +1,10 @@
 package app.hypertrophy.feature.squad
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.int
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -91,5 +96,111 @@ class SquadWireParserTest {
         )
         assertTrue(event is SquadEvent.Presence)
         assertEquals(PresenceStatus.WORKING_OUT, (event as SquadEvent.Presence).status)
+    }
+
+    @Test
+    fun systemMilestoneMessagesAreFlaggedByReservedUserId() {
+        val event = SquadWireParser.parse(
+            """{"type":"CHAT_MESSAGE","message":{"id":"m1","squadId":"s1","userId":"system","body":"Alice set a PR","createdAt":7}}""",
+        )
+
+        assertTrue(event is SquadEvent.Chat)
+        assertTrue((event as SquadEvent.Chat).message.isSystem)
+    }
+
+    @Test
+    fun systemFlagWinsOverUserIdWhenBothArePresent() {
+        val event = SquadWireParser.parse(
+            """{"type":"CHAT_MESSAGE","message":{"id":"m1","squadId":"s1","userId":"alice","body":"recap","createdAt":7,"isSystem":true}}""",
+        )
+
+        assertTrue((event as SquadEvent.Chat).message.isSystem)
+    }
+
+    @Test
+    fun hostSessionCreateParsesQueueAndRest() {
+        val event = SquadWireParser.parse(
+            """
+            {"type":"HOST_SESSION_CREATE","hostUserId":"alice","restSeconds":120,"createdAt":50,
+             "queue":[
+               {"exerciseId":"ex_back_squat","sets":3,"reps":8,"restSeconds":120},
+               {"exerciseId":"ex_bench_press","sets":4,"reps":6,"restSeconds":90}
+             ]}
+            """.trimIndent(),
+        )
+
+        assertTrue(event is SquadEvent.HostSessionCreate)
+        event as SquadEvent.HostSessionCreate
+        assertEquals("alice", event.hostUserId)
+        assertEquals(120, event.restSeconds)
+        assertEquals(50L, event.createdAt)
+        assertEquals(2, event.queue.size)
+        assertEquals("ex_back_squat", event.queue[0].exerciseId)
+        assertEquals(4, event.queue[1].sets)
+        assertEquals(6, event.queue[1].reps)
+    }
+
+    @Test
+    fun hostSessionQueueFallsBackToDefaultsForMissingNumbers() {
+        val event = SquadWireParser.parse(
+            """{"type":"HOST_SESSION_CREATE","hostUserId":"alice","restSeconds":75,"queue":[{"exerciseId":"ex_rdl"}]}""",
+        )
+
+        val exercise = (event as SquadEvent.HostSessionCreate).queue.single()
+        assertEquals(3, exercise.sets)
+        assertEquals(8, exercise.reps)
+        assertEquals(75, exercise.restSeconds)
+    }
+
+    @Test
+    fun hostSessionStartParsesQueueForLateJoiners() {
+        val event = SquadWireParser.parse(
+            """
+            {"type":"HOST_SESSION_START","hostUserId":"bob","restSeconds":90,"createdAt":10,
+             "startedAt":20,"queue":[{"exerciseId":"ex_deadlift","sets":3,"reps":5,"restSeconds":90}]}
+            """.trimIndent(),
+        )
+
+        assertTrue(event is SquadEvent.HostSessionStart)
+        event as SquadEvent.HostSessionStart
+        assertEquals(20L, event.startedAt)
+        assertEquals("bob", event.hostUserId)
+        assertEquals(1, event.queue.size)
+    }
+
+    @Test
+    fun errorFramesSurfaceTheServerCode() {
+        val event = SquadWireParser.parse("""{"type":"error","error":"not_host"}""")
+
+        assertEquals(SquadEvent.Error("not_host"), event)
+        assertEquals("Only the host can start the group session", squadErrorMessage("not_host"))
+    }
+
+    @Test
+    fun hostCreateCodecProducesTheServerContract() {
+        val text = SquadWireCodec.hostSessionCreate(
+            queue = listOf(
+                HostExercise("ex_back_squat", sets = 3, reps = 8, restSeconds = 120),
+            ),
+            restSeconds = 120,
+        )
+        val root = Json.parseToJsonElement(text) as JsonObject
+
+        assertEquals("HOST_SESSION_CREATE", (root["type"] as JsonPrimitive).content)
+        assertEquals(120, (root["restSeconds"] as JsonPrimitive).int)
+        val queue = root["queue"] as JsonArray
+        assertEquals(1, queue.size)
+        val entry = queue[0] as JsonObject
+        assertEquals("ex_back_squat", (entry["exerciseId"] as JsonPrimitive).content)
+        assertEquals(3, (entry["sets"] as JsonPrimitive).int)
+    }
+
+    @Test
+    fun hostStartCodecUsesTheExpectedType() {
+        assertEquals(
+            "HOST_SESSION_START",
+            (Json.parseToJsonElement(SquadWireCodec.hostSessionStart()) as JsonObject)
+                .let { (it["type"] as JsonPrimitive).content },
+        )
     }
 }

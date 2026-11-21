@@ -72,6 +72,9 @@ interface TrainingDao {
     @Query("SELECT * FROM scheduled_workouts WHERE user_id = :userId ORDER BY scheduled_day ASC")
     fun observeSchedule(userId: String): Flow<List<ScheduledWorkoutEntity>>
 
+    @Query("SELECT COUNT(*) FROM scheduled_workouts WHERE user_id = :userId")
+    suspend fun countScheduled(userId: String): Int
+
     @Query(
         "SELECT * FROM scheduled_workouts WHERE user_id = :userId AND scheduled_day = :epochDay " +
             "ORDER BY created_at ASC",

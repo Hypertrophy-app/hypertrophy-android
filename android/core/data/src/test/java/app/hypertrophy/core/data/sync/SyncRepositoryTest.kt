@@ -1,6 +1,7 @@
 package app.hypertrophy.core.data.sync
 
 import app.hypertrophy.core.data.local.PersonalRecordEntity
+import app.hypertrophy.core.data.local.PersonalRecordWithExercise
 import app.hypertrophy.core.data.local.SyncOutboxEntity
 import app.hypertrophy.core.data.local.WorkoutDao
 import app.hypertrophy.core.data.local.WorkoutSessionEntity
@@ -25,6 +26,8 @@ private class FakeWorkoutDao(initial: List<SyncOutboxEntity> = emptyList()) : Wo
     var sessionUpserts = 0
 
     override fun observeSessions(userId: String): Flow<List<WorkoutSessionEntity>> = flowOf(emptyList())
+
+    override fun observeSessionTimestamps(userId: String): Flow<List<Long>> = flowOf(emptyList())
 
     override fun observeSessionsSince(
         userId: String,
@@ -52,6 +55,11 @@ private class FakeWorkoutDao(initial: List<SyncOutboxEntity> = emptyList()) : Wo
 
     override fun observePersonalRecords(userId: String): Flow<List<PersonalRecordEntity>> =
         flowOf(emptyList())
+
+    override fun observePersonalRecordBoard(
+        userId: String,
+        limit: Int,
+    ): Flow<List<PersonalRecordWithExercise>> = flowOf(emptyList())
 
     override suspend fun findSession(id: String): WorkoutSessionEntity? = null
 

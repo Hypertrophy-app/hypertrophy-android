@@ -19,7 +19,30 @@ enum class MuscleGroup(val label: String, val isFront: Boolean) {
     HAMSTRINGS("Hamstrings", false),
     GLUTES("Glutes", false),
     CALVES("Calves", false),
-    LOWER_BACK("Lower Back", false),
+    LOWER_BACK("Lower Back", false);
+
+    companion object {
+        /** Maps the exercise catalogue's `primary_muscle` values to the map. */
+        fun fromCatalogKey(key: String): MuscleGroup? = when (key) {
+            "chest" -> CHEST
+            "front_delts" -> FRONT_DELTS
+            "side_delts" -> SIDE_DELTS
+            "rear_delts" -> REAR_DELTS
+            "lats" -> LATS
+            "traps", "rhomboids" -> TRAPS
+            "biceps" -> BICEPS
+            "triceps" -> TRICEPS
+            "forearms" -> FOREARMS
+            "core", "abs" -> ABS
+            "obliques" -> OBLIQUES
+            "quads", "quadriceps" -> QUADS
+            "hamstrings" -> HAMSTRINGS
+            "glutes" -> GLUTES
+            "calves" -> CALVES
+            "lower_back" -> LOWER_BACK
+            else -> null
+        }
+    }
 }
 
 enum class RecoveryStatus { FATIGUED, RECOVERING, PRIME }

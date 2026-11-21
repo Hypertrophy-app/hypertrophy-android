@@ -76,6 +76,14 @@ class SquadWebSocketClient(
         send("""{"type":"CHAT_MESSAGE","body":${Json.encodeToString(serializer<String>(), body)}}""")
     }
 
+    fun createHostSession(queue: List<HostExercise>, restSeconds: Int) {
+        send(SquadWireCodec.hostSessionCreate(queue, restSeconds))
+    }
+
+    fun startHostSession() {
+        send(SquadWireCodec.hostSessionStart())
+    }
+
     fun disconnect() {
         running = false
         client.close()
