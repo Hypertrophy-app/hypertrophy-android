@@ -19,9 +19,9 @@ enum class ThemeMode {
 
 /** Resolves a mode into the boolean the Material theme needs. */
 fun ThemeMode.resolveDarkTheme(systemDarkTheme: Boolean): Boolean = when (this) {
-    SYSTEM -> systemDarkTheme
-    LIGHT -> false
-    DARK -> true
+    ThemeMode.SYSTEM -> systemDarkTheme
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
 }
 
 /**
