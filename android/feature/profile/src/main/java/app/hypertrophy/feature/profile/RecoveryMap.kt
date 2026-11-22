@@ -1,6 +1,8 @@
 package app.hypertrophy.feature.profile
 
 import androidx.compose.ui.graphics.Color
+import app.hypertrophy.core.designsystem.theme.DarkPhoenixColors
+import app.hypertrophy.core.designsystem.theme.PhoenixColors
 import java.util.concurrent.TimeUnit
 
 enum class MuscleGroup(val label: String, val isFront: Boolean) {
@@ -57,10 +59,13 @@ fun recoveryStatus(lastTrainedAtMillis: Long?, nowMillis: Long): RecoveryStatus 
     }
 }
 
-fun recoveryColor(status: RecoveryStatus): Color = when (status) {
-    RecoveryStatus.FATIGUED -> Color(0xFFFF2A4B)
-    RecoveryStatus.RECOVERING -> Color(0xFFFF6B1A)
-    RecoveryStatus.PRIME -> Color(0xFFFFB800)
+fun recoveryColor(
+    status: RecoveryStatus,
+    colors: PhoenixColors = DarkPhoenixColors,
+): Color = when (status) {
+    RecoveryStatus.FATIGUED -> colors.formErrorCrimson
+    RecoveryStatus.RECOVERING -> colors.emberOrange
+    RecoveryStatus.PRIME -> colors.solarGold
 }
 
 data class MuscleRecovery(
