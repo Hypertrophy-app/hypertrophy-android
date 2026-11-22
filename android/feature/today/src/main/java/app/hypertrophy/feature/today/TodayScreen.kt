@@ -154,7 +154,7 @@ fun TodayScreen(
         }
 
         TextButton(onClick = onOpenWorkout) {
-            Text("Open workout builder", color = colors.solarGold)
+            Text("Open live workout", color = colors.solarGold)
         }
     }
 }
@@ -205,7 +205,7 @@ private fun PlanCard(state: TodayUiState, onOpenWorkout: () -> Unit) {
             color = colors.textPrimary,
         )
         TextButton(onClick = onOpenWorkout) {
-            Text("Build a workout", color = colors.solarGold)
+            Text("Start live workout", color = colors.solarGold)
         }
     } else {
         state.scheduled.forEach { scheduled ->
