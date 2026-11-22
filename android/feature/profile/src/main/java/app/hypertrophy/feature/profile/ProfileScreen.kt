@@ -14,9 +14,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,7 +90,6 @@ fun ProfileScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.canvas)
-            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -163,7 +163,7 @@ private fun AppearanceSection() {
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.outlinedButtonColors(
                     containerColor = if (isSelected) colors.crimsonPrimary else Color.Transparent,
-                    contentColor = if (isSelected) colors.textPrimary else colors.textSecondary,
+                    contentColor = if (isSelected) colors.onCrimson else colors.textSecondary,
                 ),
             ) {
                 Text(
@@ -202,7 +202,10 @@ private fun ProfileHeader(state: ProfileUiState) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "PROFILE",
-                style = PhoenixMonoTextStyle.copy(fontSize = 26.sp, lineHeight = 28.sp),
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontSize = 26.sp,
+                    lineHeight = 28.sp,
+                ),
                 color = colors.textPrimary,
             )
             Text(
@@ -553,7 +556,7 @@ private fun PrTrophyWall(records: List<PersonalRecordWithExercise>) {
                     )
                     Text(
                         text = "${formatKg(record.record.maxWeightKg)} kg x ${record.record.maxReps} reps",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = PhoenixMonoTextStyle.copy(fontSize = 12.sp, lineHeight = 16.sp),
                         color = colors.textSecondary,
                     )
                 }
@@ -597,14 +600,18 @@ private fun ProgressionSection(
             Text(
                 text = option.name,
                 modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .wrapContentSize()
                     .background(
                         color = if (isSelected) colors.solarGold else colors.elevated,
                         shape = RoundedCornerShape(50),
                     )
-                    .clickable { onSelectExercise(option.exerciseId) }
-                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                    .clickable(onClickLabel = "Select ${option.name}") {
+                        onSelectExercise(option.exerciseId)
+                    }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (isSelected) colors.canvas else colors.textPrimary,
+                color = if (isSelected) colors.onGold else colors.textPrimary,
             )
         }
     }
