@@ -18,11 +18,11 @@ fun PhoenixTheme(
     val colorScheme = if (darkTheme) {
         darkColorScheme(
             primary = phoenix.crimsonPrimary,
-            onPrimary = phoenix.textPrimary,
+            onPrimary = phoenix.onCrimson,
             secondary = phoenix.emberOrange,
-            onSecondary = phoenix.canvas,
+            onSecondary = phoenix.onGold,
             tertiary = phoenix.solarGold,
-            onTertiary = phoenix.canvas,
+            onTertiary = phoenix.onGold,
             background = phoenix.canvas,
             onBackground = phoenix.textPrimary,
             surface = phoenix.surface,
@@ -34,11 +34,11 @@ fun PhoenixTheme(
     } else {
         lightColorScheme(
             primary = phoenix.crimsonPrimary,
-            onPrimary = phoenix.surface,
+            onPrimary = phoenix.onCrimson,
             secondary = phoenix.emberOrange,
-            onSecondary = phoenix.surface,
+            onSecondary = phoenix.onGold,
             tertiary = phoenix.solarGold,
-            onTertiary = phoenix.textPrimary,
+            onTertiary = phoenix.onGold,
             background = phoenix.canvas,
             onBackground = phoenix.textPrimary,
             surface = phoenix.surface,
