@@ -58,7 +58,10 @@ import java.util.Locale
 import kotlin.math.min
 
 @Composable
-fun ProfileRoute(viewModel: ProfileViewModel = hiltViewModel()) {
+fun ProfileRoute(
+    onOpenAuth: () -> Unit,
+    viewModel: ProfileViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val permissions = remember(viewModel) { viewModel.healthConnect.permissions }
     val launcher = rememberLauncherForActivityResult(
@@ -72,6 +75,7 @@ fun ProfileRoute(viewModel: ProfileViewModel = hiltViewModel()) {
         onSelectExercise = viewModel::selectExercise,
         onRequestHealthPermissions = { launcher.launch(permissions) },
         onExportToHealthConnect = viewModel::exportToHealthConnect,
+        onOpenAuth = onOpenAuth,
     )
 }
 
@@ -81,6 +85,7 @@ fun ProfileScreen(
     onSelectExercise: (String) -> Unit,
     onRequestHealthPermissions: () -> Unit,
     onExportToHealthConnect: () -> Unit,
+    onOpenAuth: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalPhoenixColors.current
@@ -99,6 +104,11 @@ fun ProfileScreen(
 
         SectionTitle("Appearance")
         AppearanceSection()
+
+        SectionTitle("Account")
+        TextButton(onClick = onOpenAuth) {
+            Text("Sign-in options", color = colors.solarGold)
+        }
 
         SectionTitle("Muscle recovery")
         RecoverySection(recovery = state.recovery, nowMillis = now)
