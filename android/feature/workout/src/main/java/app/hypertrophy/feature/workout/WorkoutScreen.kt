@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -34,12 +36,20 @@ fun WorkoutRoute(
     viewModel: WorkoutViewModel = hiltViewModel(),
 ) {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
-    WorkoutScreen(sessionCount = sessions.size, onBack = onBack)
+    val session by viewModel.session.collectAsStateWithLifecycle()
+    WorkoutScreen(
+        session = session,
+        sessionCount = sessions.size,
+        onCompleteSet = viewModel::completeSet,
+        onBack = onBack,
+    )
 }
 
 @Composable
 fun WorkoutScreen(
+    session: LiveSessionUiState,
     sessionCount: Int,
+    onCompleteSet: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -50,6 +60,8 @@ fun WorkoutScreen(
             .fillMaxSize()
             .background(colors.canvas)
             .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
             .padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
         Row(
@@ -70,8 +82,13 @@ fun WorkoutScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Set 1 of 4",
+            text = "Set ${session.setNumber} of ${session.totalSets}",
             style = androidx.compose.material3.MaterialTheme.typography.headlineLarge,
+            color = colors.textPrimary,
+        )
+        Text(
+            text = session.exerciseName,
+            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
             color = colors.textPrimary,
         )
         Text(
@@ -86,9 +103,9 @@ fun WorkoutScreen(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            PhoenixEmberRing(progress = 0.72f, modifier = Modifier.size(240.dp))
+            PhoenixEmberRing(progress = session.progress, modifier = Modifier.size(240.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "12", style = PhoenixMonoTextStyle, color = colors.textPrimary)
+                Text(text = "${session.reps}", style = PhoenixMonoTextStyle, color = colors.textPrimary)
                 Text(
                     text = "REPS",
                     style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
@@ -108,14 +125,18 @@ fun WorkoutScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = {},
+            onClick = onCompleteSet,
+            enabled = !session.isComplete,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = colors.crimsonPrimary),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colors.crimsonPrimary,
+                contentColor = colors.onCrimson,
+            ),
         ) {
             Text(
-                text = "Complete set",
+                text = if (session.isComplete) "Session complete" else "Complete set",
                 style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
             )
         }
