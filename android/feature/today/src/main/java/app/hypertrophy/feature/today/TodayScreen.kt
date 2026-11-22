@@ -37,6 +37,7 @@ import app.hypertrophy.core.data.catalog.ExerciseCatalog
 import app.hypertrophy.core.data.local.ChallengeEntity
 import app.hypertrophy.core.data.local.ScheduledWorkoutEntity
 import app.hypertrophy.core.data.squad.TeammateSetProgress
+import app.hypertrophy.core.designsystem.component.sharedFireElement
 import app.hypertrophy.core.designsystem.theme.LocalPhoenixColors
 import app.hypertrophy.core.designsystem.theme.PhoenixMonoTextStyle
 import java.time.LocalDate
@@ -164,9 +165,15 @@ private fun TodayCardShell(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = LocalPhoenixColors.current
+    val morphModifier = if (card == TodayCard.TODAYS_PLAN) {
+        Modifier.sharedFireElement("today-plan-to-workout")
+    } else {
+        Modifier
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .then(morphModifier)
             .background(colors.surface, RoundedCornerShape(20.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
