@@ -18,10 +18,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -291,9 +293,11 @@ private fun CoachTopBar(
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.textSecondary,
                 modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .wrapContentSize()
                     .clip(RoundedCornerShape(50))
                     .clickable(onClick = onBack)
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
@@ -307,9 +311,11 @@ private fun CoachTopBar(
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.formErrorCrimson,
                 modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .wrapContentSize()
                     .clip(RoundedCornerShape(50))
                     .clickable(onClick = onEndSession)
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
@@ -392,6 +398,8 @@ private fun Chip(
         style = MaterialTheme.typography.labelLarge,
         color = contentColor,
         modifier = Modifier
+            .heightIn(min = 48.dp)
+            .wrapContentSize()
             .clip(RoundedCornerShape(50))
             .background(background)
             .clickable(onClick = onClick)
@@ -845,9 +853,11 @@ private fun MusicChip(
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.solarGold,
                 modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .wrapContentSize()
                     .clip(RoundedCornerShape(50))
                     .clickable(onClick = onOpenSettings)
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             )
         } else {
             Column(modifier = Modifier.weight(1f)) {
@@ -871,18 +881,22 @@ private fun MusicChip(
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.solarGold,
                 modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .wrapContentSize()
                     .clip(RoundedCornerShape(50))
                     .clickable(onClick = onToggle)
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             )
             Text(
                 text = "NEXT",
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.textSecondary,
                 modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .wrapContentSize()
                     .clip(RoundedCornerShape(50))
                     .clickable(onClick = onNext)
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             )
         }
     }
