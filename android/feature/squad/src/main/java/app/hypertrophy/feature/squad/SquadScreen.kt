@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,7 +60,7 @@ fun SquadRoute(
         onJoinByCode = viewModel::joinByCode,
         onSelectSquad = viewModel::selectSquad,
         onSendChat = viewModel::sendChat,
-        onToggleStealth = viewModel::toggleStealth,
+        onToggleStealth = viewModel::setStealthMode,
         onCreateHostSession = viewModel::createHostSession,
         onStartHostSession = viewModel::startHostSession,
     )
@@ -74,7 +73,7 @@ fun SquadScreen(
     onJoinByCode: (String) -> Unit,
     onSelectSquad: (String) -> Unit,
     onSendChat: (String) -> Unit,
-    onToggleStealth: () -> Unit,
+    onToggleStealth: (Boolean) -> Unit,
     onCreateHostSession: (Int) -> Unit,
     onStartHostSession: () -> Unit,
     modifier: Modifier = Modifier,
@@ -90,14 +89,16 @@ fun SquadScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.canvas)
-            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(
             text = "SQUADS",
-            style = PhoenixMonoTextStyle.copy(fontSize = 28.sp, lineHeight = 30.sp),
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontSize = 28.sp,
+                lineHeight = 30.sp,
+            ),
             color = colors.textPrimary,
         )
 
@@ -257,7 +258,7 @@ fun SquadScreen(
                     color = colors.textSecondary,
                 )
             }
-            Switch(checked = state.stealthMode, onCheckedChange = { onToggleStealth() })
+            Switch(checked = state.stealthMode, onCheckedChange = onToggleStealth)
         }
 
         if (state.selectedSquadId != null) {
@@ -418,7 +419,7 @@ private fun GoldButton(label: String, onClick: () -> Unit) {
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
             containerColor = colors.solarGold,
-            contentColor = colors.canvas,
+            contentColor = colors.onGold,
         ),
     ) {
         Text(label)
