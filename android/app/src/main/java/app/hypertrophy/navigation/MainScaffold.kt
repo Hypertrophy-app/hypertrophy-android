@@ -93,7 +93,7 @@ fun MainScaffold(
                                     Icon(
                                         Icons.Filled.Add,
                                         contentDescription = "Start",
-                                        tint = colors.textPrimary,
+                                        tint = colors.onCrimson,
                                     )
                                 }
                             }
