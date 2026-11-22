@@ -1058,7 +1058,7 @@ private fun RecapOverlay(
             Text(
                 text = "NEW PERSONAL RECORD",
                 style = MaterialTheme.typography.labelLarge,
-                color = colors.canvas,
+                color = colors.onGold,
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
                     .background(colors.solarGold)
