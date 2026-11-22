@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.core.view.WindowCompat
 import app.hypertrophy.core.designsystem.theme.HypertrophyTheme
 import app.hypertrophy.core.designsystem.theme.ThemePreferences
@@ -16,9 +17,12 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val inviteCodeState = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ThemePreferences.load(applicationContext)
+        inviteCodeState.value = inviteCodeFrom(intent)
         enableEdgeToEdge()
         setContent {
             val systemDarkTheme = isSystemInDarkTheme()
@@ -29,17 +33,17 @@ class MainActivity : ComponentActivity() {
                 controller.isAppearanceLightNavigationBars = !darkTheme
             }
             HypertrophyTheme(darkTheme = darkTheme) {
-                HypertrophyApp(initialInviteCode = inviteCodeFrom(intent))
+                HypertrophyApp(initialInviteCode = inviteCodeState.value)
             }
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Activity is recreated via composition when the caller re-enters with
-        // a new deep link; reading the latest intent keeps join links working
-        // without a navigation reset.
         setIntent(intent)
+        // The activity is reused while it is alive, so the observed state must
+        // be updated for the join link to reach the composition.
+        inviteCodeState.value = inviteCodeFrom(intent)
     }
 
     companion object {
