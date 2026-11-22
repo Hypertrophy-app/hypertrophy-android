@@ -4,7 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.view.WindowCompat
 import app.hypertrophy.core.designsystem.theme.HypertrophyTheme
 import app.hypertrophy.core.designsystem.theme.ThemePreferences
 import app.hypertrophy.core.designsystem.theme.resolveDarkTheme
@@ -16,9 +19,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ThemePreferences.load(applicationContext)
+        enableEdgeToEdge()
         setContent {
             val systemDarkTheme = isSystemInDarkTheme()
             val darkTheme = ThemePreferences.mode.resolveDarkTheme(systemDarkTheme)
+            LaunchedEffect(darkTheme) {
+                val controller = WindowCompat.getInsetsController(window, window.decorView)
+                controller.isAppearanceLightStatusBars = !darkTheme
+                controller.isAppearanceLightNavigationBars = !darkTheme
+            }
             HypertrophyTheme(darkTheme = darkTheme) {
                 HypertrophyApp(initialInviteCode = inviteCodeFrom(intent))
             }
