@@ -42,9 +42,7 @@ fun ThermalProgressRing(
 
     var bursting by remember { mutableStateOf(false) }
     LaunchedEffect(animated) {
-        if (animated >= 0.999f) {
-            bursting = true
-        }
+        bursting = animated >= 0.999f
     }
 
     val density = LocalDensity.current
