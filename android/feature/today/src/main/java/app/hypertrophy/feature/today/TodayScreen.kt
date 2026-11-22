@@ -89,7 +89,10 @@ fun TodayScreen(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "TODAY",
-                    style = PhoenixMonoTextStyle.copy(fontSize = 28.sp, lineHeight = 30.sp),
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontSize = 28.sp,
+                        lineHeight = 30.sp,
+                    ),
                     color = colors.textPrimary,
                 )
                 Text(
@@ -211,12 +214,12 @@ private fun PlanCard(state: TodayUiState, onOpenWorkout: () -> Unit) {
     ) {
         Text(
             text = "${state.week.sessions} sessions",
-            style = MaterialTheme.typography.labelMedium,
+            style = PhoenixMonoTextStyle.copy(fontSize = 12.sp, lineHeight = 16.sp),
             color = colors.textSecondary,
         )
         Text(
             text = "${TodayInsights.formatVolume(state.week.volumeKg)} kg",
-            style = MaterialTheme.typography.labelMedium,
+            style = PhoenixMonoTextStyle.copy(fontSize = 12.sp, lineHeight = 16.sp),
             color = colors.textSecondary,
         )
     }
@@ -357,7 +360,7 @@ private fun ConsistencyCard(state: TodayUiState) {
     )
     Text(
         text = "${state.sessionsLast30Days} sessions in the last 30 days",
-        style = MaterialTheme.typography.labelMedium,
+        style = PhoenixMonoTextStyle.copy(fontSize = 12.sp, lineHeight = 16.sp),
         color = colors.textSecondary,
     )
 }
