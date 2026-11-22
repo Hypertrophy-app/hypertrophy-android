@@ -236,6 +236,10 @@ class SquadViewModel @Inject constructor(
         _state.value = _state.value.copy(stealthMode = !_state.value.stealthMode)
     }
 
+    fun setStealthMode(enabled: Boolean) {
+        _state.value = _state.value.copy(stealthMode = enabled)
+    }
+
     private suspend fun cacheSquad(squad: SquadDto) {
         val now = System.currentTimeMillis()
         squadDao.upsertSquads(listOf(squad.toEntity()))
