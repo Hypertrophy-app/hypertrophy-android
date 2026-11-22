@@ -114,7 +114,7 @@ fun ExerciseFormViewer(
             Text(
                 text = when {
                     modelFile != null -> "Cached: ${modelFile.name}"
-                    else -> "Streaming model on first view"
+                    else -> "Offline form preview ready"
                 },
                 modifier = Modifier
                     .align(Alignment.BottomStart)
