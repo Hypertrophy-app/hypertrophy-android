@@ -104,6 +104,10 @@ class TodayViewModel @Inject constructor(
         viewModelScope.launch { store.setLayout(layout.value.toggle(card)) }
     }
 
+    fun setVisible(card: TodayCard, isVisible: Boolean) {
+        viewModelScope.launch { store.setLayout(layout.value.setVisible(card, isVisible)) }
+    }
+
     private data class BaseState(
         val state: TodayUiState,
         val sessionsForMuscles: List<WorkoutSessionEntity>,
