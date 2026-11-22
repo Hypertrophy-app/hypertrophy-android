@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.hypertrophy.core.designsystem.component.PhoenixEmberRing
+import app.hypertrophy.core.designsystem.component.sharedFireElement
 import app.hypertrophy.core.designsystem.theme.LocalPhoenixColors
 import app.hypertrophy.core.designsystem.theme.PhoenixMonoTextStyle
 
@@ -65,7 +66,9 @@ fun WorkoutScreen(
             .padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .sharedFireElement("today-plan-to-workout"),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
