@@ -72,6 +72,12 @@ val PhoenixTypography = Typography(
         fontSize = 18.sp,
         lineHeight = 24.sp,
     ),
+    titleSmall = TextStyle(
+        fontFamily = SpaceGrotesk,
+        fontWeight = FontWeight.Medium,
+        fontSize = 16.sp,
+        lineHeight = 20.sp,
+    ),
     bodyLarge = TextStyle(
         fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Normal,
@@ -94,6 +100,12 @@ val PhoenixTypography = Typography(
         fontFamily = PlusJakartaSans,
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
+        lineHeight = 16.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = PlusJakartaSans,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
         lineHeight = 16.sp,
     ),
 )
