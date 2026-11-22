@@ -2,6 +2,8 @@ package app.hypertrophy.core.vision
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -57,6 +59,7 @@ fun CameraPosePreview(
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestFrame by rememberUpdatedState(onPoseFrame)
     val latestError by rememberUpdatedState(onCameraError)
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
     var landmarks by remember(lensFacing) { mutableStateOf<List<Landmark>>(emptyList()) }
 
     val previewView = remember {
@@ -71,7 +74,9 @@ fun CameraPosePreview(
             context = context,
             listener = object : PoseLandmarkerHelper.Listener {
                 override fun onPoseFrame(frame: PoseFrame) {
-                    landmarks = frame.landmarks
+                    // Analysis runs off the main thread; compose state must be
+                    // written on the main thread via the handler.
+                    mainHandler.post { landmarks = frame.landmarks }
                     latestFrame(frame)
                 }
 
