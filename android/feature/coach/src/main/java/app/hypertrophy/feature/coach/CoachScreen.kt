@@ -381,7 +381,11 @@ private fun Chip(
         selected -> (accent ?: colors.crimsonPrimary).copy(alpha = 0.9f)
         else -> colors.surface.copy(alpha = 0.82f)
     }
-    val contentColor = if (selected) colors.textPrimary else colors.textSecondary
+    val contentColor = when {
+        !selected -> colors.textSecondary
+        accent == colors.solarGold -> colors.onGold
+        else -> colors.onCrimson
+    }
 
     Text(
         text = label,
