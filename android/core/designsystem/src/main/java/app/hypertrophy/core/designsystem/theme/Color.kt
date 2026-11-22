@@ -15,6 +15,12 @@ data class PhoenixColors(
     val emberOrange: Color,
     val solarGold: Color,
     val formErrorCrimson: Color,
+    /** Readable foreground for crimson and ember surfaces in both themes. */
+    val onCrimson: Color,
+    /** Readable foreground for solar gold surfaces in both themes. */
+    val onGold: Color,
+    /** Scrim behind skeleton strokes drawn over the camera preview. */
+    val overlayShadow: Color,
     val isDark: Boolean,
 )
 
@@ -29,6 +35,9 @@ val DarkPhoenixColors = PhoenixColors(
     emberOrange = Color(0xFFFF6B1A),
     solarGold = Color(0xFFFFB800),
     formErrorCrimson = Color(0xFFFF2A4B),
+    onCrimson = Color(0xFFFFFFFF),
+    onGold = Color(0xFF111114),
+    overlayShadow = Color(0x73000000),
     isDark = true,
 )
 
@@ -43,6 +52,9 @@ val LightPhoenixColors = PhoenixColors(
     emberOrange = Color(0xFFFF6B1A),
     solarGold = Color(0xFFFFB800),
     formErrorCrimson = Color(0xFFFF2A4B),
+    onCrimson = Color(0xFFFFFFFF),
+    onGold = Color(0xFF111114),
+    overlayShadow = Color(0x73000000),
     isDark = false,
 )
 
