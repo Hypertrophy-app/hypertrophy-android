@@ -17,6 +17,7 @@ import app.hypertrophy.feature.coach.CoachRoute
 import app.hypertrophy.feature.profile.ProfileRoute
 import app.hypertrophy.feature.squad.SquadRoute
 import app.hypertrophy.feature.today.TodayRoute
+import app.hypertrophy.auth.AuthGateScreen
 import app.hypertrophy.feature.workout.WorkoutRoute
 import app.hypertrophy.home.HomeScreen
 
@@ -70,7 +71,23 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
                 SquadRoute()
             }
             composable("profile") {
-                ProfileRoute()
+                ProfileRoute(onOpenAuth = { navController.navigate("auth") })
+            }
+            composable("auth") {
+                val enterHome: () -> Unit = {
+                    navController.navigate("home") {
+                        launchSingleTop = true
+                        popUpTo("auth") { inclusive = true }
+                    }
+                }
+                AuthGateScreen(
+                    onGoogleSignIn = enterHome,
+                    onPasskeySignIn = enterHome,
+                    onEmailSignIn = { _, _ -> enterHome() },
+                )
+            }
+            composable("home") {
+                HomeScreen(onStartWorkout = { navController.navigate("coach") })
             }
             composable(
                 route = "join/{code}",
