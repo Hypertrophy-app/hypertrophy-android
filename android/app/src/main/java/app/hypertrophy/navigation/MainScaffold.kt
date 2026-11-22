@@ -1,10 +1,13 @@
 package app.hypertrophy.navigation
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.AutoMirrored.Filled.List
@@ -45,6 +48,15 @@ fun MainScaffold(
     val colors = LocalPhoenixColors.current
     var fabExpanded by remember { mutableStateOf(false) }
 
+    BackHandler(enabled = showBottomBar && fabExpanded) {
+        fabExpanded = false
+    }
+
+    val selectTab: (String) -> Unit = { route ->
+        fabExpanded = false
+        onTabSelected(route)
+    }
+
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
@@ -62,7 +74,7 @@ fun MainScaffold(
                             tabs.forEach { tab ->
                                 NavigationBarItem(
                                     selected = currentRoute == tab.route,
-                                    onClick = { onTabSelected(tab.route) },
+                                    onClick = { selectTab(tab.route) },
                                     icon = { Icon(tab.icon, contentDescription = tab.label) },
                                     label = { Text(tab.label) },
                                     modifier = Modifier.weight(1f),
@@ -92,7 +104,7 @@ fun MainScaffold(
                             tabs2.forEach { tab ->
                                 NavigationBarItem(
                                     selected = currentRoute == tab.route,
-                                    onClick = { onTabSelected(tab.route) },
+                                    onClick = { selectTab(tab.route) },
                                     icon = { Icon(tab.icon, contentDescription = tab.label) },
                                     label = { Text(tab.label) },
                                     modifier = Modifier.weight(1f),
@@ -107,10 +119,17 @@ fun MainScaffold(
         Box(modifier = Modifier.padding(padding)) {
             content()
             if (showBottomBar && fabExpanded) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable(onClickLabel = "Dismiss start menu") {
+                            fabExpanded = false
+                        },
+                )
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 96.dp),
+                        .padding(bottom = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
