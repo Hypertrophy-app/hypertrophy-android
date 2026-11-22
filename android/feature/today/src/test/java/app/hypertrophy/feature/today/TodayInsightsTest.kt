@@ -124,21 +124,6 @@ class TodayInsightsTest {
     }
 
     @Test
-    fun defaultWeekSeedsSevenDaysWithTwoRestDays() {
-        val week = TodayInsights.defaultWeek(
-            todayEpochDay = 20_000L,
-            nowMillis = 5L,
-            userId = "local-user",
-        )
-
-        assertEquals(7, week.size)
-        assertEquals(2, week.count { it.isRestDay })
-        assertEquals(5, week.count { it.isKeyCompound })
-        assertEquals(20_000L, week.first().scheduledDay)
-        assertEquals(20_006L, week.last().scheduledDay)
-    }
-
-    @Test
     fun challengeSummaryFormatsTargetAndDeadline() {
         val now = 1_000_000_000L
         val challenge = ChallengeEntity(

@@ -80,7 +80,8 @@ interface WorkoutDao {
 
     /**
      * PR board with exercise names. Uses an INNER JOIN so an unseeded catalogue
-     * cannot produce a row without a label; both screens seed on first launch.
+     * cannot produce a row without a label; the exercise catalogue is seeded on
+     * first launch, but workout plans and schedules are never fabricated.
      */
     @Query(
         """

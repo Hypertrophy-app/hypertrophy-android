@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
@@ -54,7 +54,6 @@ fun MainScaffold(
                     actions = {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             val tabs = listOf(
@@ -67,10 +66,26 @@ fun MainScaffold(
                                     onClick = { onTabSelected(tab.route) },
                                     icon = { Icon(tab.icon, contentDescription = tab.label) },
                                     label = { Text(tab.label) },
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
-                            // central spacer for the start FAB
-                            Box(modifier = Modifier.size(72.dp))
+                            // The start button lives in the middle slot instead of
+                            // leaving the centre of the bottom bar empty.
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                FloatingActionButton(
+                                    onClick = { fabExpanded = !fabExpanded },
+                                    containerColor = colors.crimsonPrimary,
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Add,
+                                        contentDescription = "Start",
+                                        tint = colors.textPrimary,
+                                    )
+                                }
+                            }
                             val tabs2 = listOf(
                                 TabItem("squad", "Squad", Icons.Filled.Star),
                                 TabItem("you", "You", Icons.Filled.Person),
@@ -81,25 +96,12 @@ fun MainScaffold(
                                     onClick = { onTabSelected(tab.route) },
                                     icon = { Icon(tab.icon, contentDescription = tab.label) },
                                     label = { Text(tab.label) },
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
                         }
                     },
                 )
-            }
-        },
-        floatingActionButton = {
-            if (showBottomBar) {
-                FloatingActionButton(
-                    onClick = { fabExpanded = !fabExpanded },
-                    containerColor = colors.crimsonPrimary,
-                ) {
-                    Icon(
-                        Icons.Filled.Add,
-                        contentDescription = "Start",
-                        tint = colors.textPrimary,
-                    )
-                }
             }
         },
     ) { padding ->

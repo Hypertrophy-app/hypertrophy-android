@@ -73,7 +73,8 @@ class WorkoutBuilderViewModel @Inject constructor(
             if (trainingDao.countExercises() == 0) {
                 trainingDao.upsertExercises(ExerciseCatalog.exercises)
             }
-            seedScheduleIfEmpty()
+            // No fabricated plans: a fresh install starts with an empty week
+            // until the user schedules a session themselves.
             detectOverdue()
         }
     }
@@ -229,28 +230,6 @@ class WorkoutBuilderViewModel @Inject constructor(
                 mergedExerciseIds = emptyList(),
             )
         }
-    }
-
-    private suspend fun seedScheduleIfEmpty() {
-        if (schedule.value.isNotEmpty()) return
-        val today = LocalDate.now().toEpochDay()
-        val week = (0L..6L).map { offset ->
-            val day = today + offset
-            val rest = offset == 2L || offset == 5L
-            ScheduledWorkoutEntity(
-                id = UUID.randomUUID().toString(),
-                userId = LOCAL_USER_ID,
-                templateId = null,
-                title = if (rest) "Rest Day" else "Scheduled Session",
-                scheduledDay = day,
-                isRestDay = rest,
-                isCompleted = false,
-                isKeyCompound = !rest,
-                exercisesJson = null,
-                createdAt = System.currentTimeMillis(),
-            )
-        }
-        trainingDao.upsertScheduledAll(week)
     }
 
     private fun ScheduledWorkoutEntity.toPlan() = PlannedWorkout(

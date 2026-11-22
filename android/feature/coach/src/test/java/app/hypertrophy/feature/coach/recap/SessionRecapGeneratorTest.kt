@@ -8,6 +8,18 @@ import org.junit.Test
 
 class SessionRecapGeneratorTest {
     @Test
+    fun emptySessionRecapDoesNotClaimAnySavedWork() {
+        val recap = SessionRecapGenerator.empty("Quick Workout")
+
+        assertEquals("Quick Workout: session ended", recap.headline)
+        assertTrue(recap.body.contains("No sets were logged"))
+        assertTrue(recap.shareText.contains("no sets"))
+        assertFalse(recap.newPr)
+        assertEquals(0, recap.formScore)
+        assertEquals(0f, recap.romPercent, 0.001f)
+    }
+
+    @Test
     fun firstSessionSavesBaselineWithoutClaimingAPr() {
         val recap = SessionRecapGenerator.generate(
             current = metrics(),

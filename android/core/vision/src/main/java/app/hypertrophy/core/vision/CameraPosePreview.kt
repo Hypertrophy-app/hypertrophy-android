@@ -91,10 +91,9 @@ fun CameraPosePreview(
         val analyzer = PoseImageAnalyzer(helper)
 
         executor.execute {
-            if (!helper.setup()) {
-                latestError("Pose model could not be loaded")
-                return@execute
-            }
+            // The helper already reports the underlying load failure through
+            // onPoseError, so don't overwrite it with a generic message here.
+            if (!helper.setup()) return@execute
 
             providerFuture.addListener(
                 {

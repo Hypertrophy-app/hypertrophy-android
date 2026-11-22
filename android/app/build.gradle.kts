@@ -58,6 +58,13 @@ android {
         buildConfig = true
     }
 
+    // MediaPipe opens .task models through AssetManager.openFd(), which only
+    // works for assets stored uncompressed in the APK. Without this, both the
+    // GPU and CPU pose delegates fail to load the bundled model.
+    androidResources {
+        noCompress += listOf("tflite", "task", "litertlm")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

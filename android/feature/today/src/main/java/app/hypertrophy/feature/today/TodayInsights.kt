@@ -2,7 +2,6 @@ package app.hypertrophy.feature.today
 
 import app.hypertrophy.core.data.local.ChallengeEntity
 import app.hypertrophy.core.data.local.ExerciseEntity
-import app.hypertrophy.core.data.local.ScheduledWorkoutEntity
 import app.hypertrophy.core.data.local.WorkoutSessionEntity
 import app.hypertrophy.core.data.sync.LocalSetRecord
 import java.time.Instant
@@ -148,26 +147,6 @@ object TodayInsights {
             else -> "$daysLeft days left"
         }
         return "$target | $ending"
-    }
-
-    fun defaultWeek(
-        todayEpochDay: Long,
-        nowMillis: Long,
-        userId: String,
-    ): List<ScheduledWorkoutEntity> = (0L..6L).map { offset ->
-        val rest = offset == 2L || offset == 5L
-        ScheduledWorkoutEntity(
-            id = "seed-${todayEpochDay + offset}-$userId",
-            userId = userId,
-            templateId = null,
-            title = if (rest) "Rest Day" else "Scheduled Session",
-            scheduledDay = todayEpochDay + offset,
-            isRestDay = rest,
-            isCompleted = false,
-            isKeyCompound = !rest,
-            exercisesJson = null,
-            createdAt = nowMillis,
-        )
     }
 
     fun weekdayLabel(epochDay: Long): String =

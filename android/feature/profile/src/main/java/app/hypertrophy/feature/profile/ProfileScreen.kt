@@ -21,7 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,6 +39,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +50,8 @@ import app.hypertrophy.core.data.local.PersonalRecordWithExercise
 import app.hypertrophy.core.designsystem.theme.LocalPhoenixColors
 import app.hypertrophy.core.designsystem.theme.PhoenixColors
 import app.hypertrophy.core.designsystem.theme.PhoenixMonoTextStyle
+import app.hypertrophy.core.designsystem.theme.ThemeMode
+import app.hypertrophy.core.designsystem.theme.ThemePreferences
 import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.min
@@ -92,6 +97,9 @@ fun ProfileScreen(
         ProfileHeader(state = state)
         StatsGrid(state = state)
 
+        SectionTitle("Appearance")
+        AppearanceSection()
+
         SectionTitle("Muscle recovery")
         RecoverySection(recovery = state.recovery, nowMillis = now)
 
@@ -135,6 +143,39 @@ fun ProfileScreen(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun AppearanceSection() {
+    val context = LocalContext.current
+    val colors = LocalPhoenixColors.current
+    val selected = ThemePreferences.mode
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ThemeMode.entries.forEach { mode ->
+            val isSelected = mode == selected
+            OutlinedButton(
+                onClick = { ThemePreferences.set(context, mode) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = if (isSelected) colors.crimsonPrimary else Color.Transparent,
+                    contentColor = if (isSelected) colors.textPrimary else colors.textSecondary,
+                ),
+            ) {
+                Text(
+                    text = when (mode) {
+                        ThemeMode.SYSTEM -> "System"
+                        ThemeMode.LIGHT -> "Light"
+                        ThemeMode.DARK -> "Dark"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
     }
 }
 

@@ -127,6 +127,10 @@ fun CoachRoute(
             }
         },
         onClearRecap = viewModel::clearRecap,
+        onFinishWorkout = {
+            viewModel.clearRecap()
+            onBack()
+        },
         onBack = onBack,
     )
 }
@@ -155,6 +159,7 @@ fun CoachScreen(
     onOpenMusicSettings: () -> Unit,
     onShareRecap: () -> Unit,
     onClearRecap: () -> Unit,
+    onFinishWorkout: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -267,6 +272,7 @@ fun CoachScreen(
                 recap = recap,
                 onShare = onShareRecap,
                 onDone = onClearRecap,
+                onFinish = onFinishWorkout,
             )
         }
     }
@@ -1022,6 +1028,7 @@ private fun RecapOverlay(
     recap: SessionRecap,
     onShare: () -> Unit,
     onDone: () -> Unit,
+    onFinish: () -> Unit,
 ) {
     val colors = LocalPhoenixColors.current
 
@@ -1110,6 +1117,19 @@ private fun RecapOverlay(
         ) {
             Text(
                 text = "Back to coach",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.textPrimary,
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = onFinish,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+        ) {
+            Text(
+                text = "Finish workout",
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.textPrimary,
             )

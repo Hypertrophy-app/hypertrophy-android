@@ -32,6 +32,21 @@ data class SessionRecap(
  * post-workout review instant and reproducible offline.
  */
 object SessionRecapGenerator {
+    /**
+     * A finished quick workout with no logged sets. It still ends the session
+     * and gives the user a way out, but nothing is persisted or reported as a
+     * personal record.
+     */
+    fun empty(exerciseName: String): SessionRecap = SessionRecap(
+        headline = "$exerciseName: session ended",
+        body = "No sets were logged, so nothing was saved. " +
+            "Start again whenever you are ready.",
+        shareText = "HYPERTROPHY | $exerciseName | Quick workout ended with no sets.",
+        formScore = 0,
+        romPercent = 0f,
+        newPr = false,
+    )
+
     fun generate(
         current: SessionMetrics,
         previous: SessionMetrics?,

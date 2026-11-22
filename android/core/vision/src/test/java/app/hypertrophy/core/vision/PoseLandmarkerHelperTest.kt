@@ -64,6 +64,25 @@ class PoseLandmarkerHelperTest {
     }
 
     @Test
+    fun bothDelegatesFailingSurfacesTheUnderlyingCause() {
+        val factory = FakeEngineFactory(
+            gpu = { throw IllegalStateException("Pose model asset is missing or compressed") },
+            cpu = { throw IllegalStateException("Pose model asset is missing or compressed") },
+        )
+        val listener = RecordingListener()
+
+        assertFalse(PoseLandmarkerHelper(factory, listener).setup())
+
+        assertEquals(
+            listOf(
+                "Pose model could not be loaded on GPU or CPU: " +
+                    "Pose model asset is missing or compressed",
+            ),
+            listener.errors,
+        )
+    }
+
+    @Test
     fun throwingFactoryIsTreatedAsFailureAndCpuFallbackStillWorks() {
         val engine = FakeEngine()
         val factory = FakeEngineFactory(

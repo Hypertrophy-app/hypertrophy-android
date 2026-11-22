@@ -78,7 +78,9 @@ class PoseLandmarkerHelper internal constructor(
     fun setup(): Boolean {
         if (engine != null) return true
 
-        val gpu = createEngine(PoseDelegate.GPU)
+        val failures = mutableListOf<String>()
+
+        val gpu = attemptEngine(PoseDelegate.GPU, failures)
         if (gpu != null) {
             engine = gpu
             activeDelegate = PoseDelegate.GPU
@@ -86,7 +88,7 @@ class PoseLandmarkerHelper internal constructor(
             return true
         }
 
-        val cpu = createEngine(PoseDelegate.CPU)
+        val cpu = attemptEngine(PoseDelegate.CPU, failures)
         if (cpu != null) {
             engine = cpu
             activeDelegate = PoseDelegate.CPU
@@ -94,7 +96,16 @@ class PoseLandmarkerHelper internal constructor(
             return true
         }
 
-        listener.onPoseError("Pose model could not be loaded on GPU or CPU")
+        // The underlying cause (missing/compressed asset, unsupported delegate,
+        // native library failure) is far more useful than a generic message.
+        val cause = failures.firstOrNull { it.isNotBlank() }
+        listener.onPoseError(
+            if (cause == null) {
+                "Pose model could not be loaded on GPU or CPU"
+            } else {
+                "Pose model could not be loaded on GPU or CPU: $cause"
+            },
+        )
         return false
     }
 
@@ -117,9 +128,18 @@ class PoseLandmarkerHelper internal constructor(
         engine = null
     }
 
-    /** A factory failure simply marks the delegate unavailable; CPU fallback still runs. */
-    private fun createEngine(delegate: PoseDelegate): PoseEngine? =
-        runCatching { engineFactory.create(delegate) }.getOrNull()
+    /** A factory failure marks the delegate unavailable; CPU fallback still runs. */
+    private fun attemptEngine(
+        delegate: PoseDelegate,
+        failures: MutableList<String>,
+    ): PoseEngine? = try {
+        engineFactory.create(delegate)
+    } catch (error: Throwable) {
+        Log.w(TAG, "PoseLandmarker $delegate delegate unavailable", error)
+        failures += error.message?.takeIf { it.isNotBlank() }
+            ?: error::class.java.simpleName
+        null
+    }
 
     companion object {
         const val MODEL_ASSET = "pose_landmarker_full.task"
@@ -154,6 +174,18 @@ internal class MediaPipePoseEngineFactory(
     private val minTrackingConfidence: Float,
 ) : PoseEngineFactory {
     override fun create(delegate: PoseLandmarkerHelper.PoseDelegate): PoseEngine? = runCatching {
+        // MediaPipe reads the model via AssetManager.openFd(), which cannot open
+        // an asset that aapt compressed. Marking .task files noCompress in the
+        // app module fixes it; this check makes any regression actionable.
+        runCatching { context.assets.openFd(PoseLandmarkerHelper.MODEL_ASSET).close() }
+            .onFailure {
+                throw IllegalStateException(
+                    "Pose model asset is missing or compressed: " +
+                        PoseLandmarkerHelper.MODEL_ASSET,
+                    it,
+                )
+            }
+
         val lastTimestamp = AtomicLong(0L)
         val baseOptions = BaseOptions.builder()
             .setModelAssetPath(PoseLandmarkerHelper.MODEL_ASSET)

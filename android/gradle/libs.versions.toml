@@ -26,7 +26,8 @@ junit = "4.13.2"
 json = "20240303"
 
 compileSdk = "35"
-minSdk = "26"
+# MediaPipe Tasks (used by the pose coach) requires API 28 or newer.
+minSdk = "28"
 targetSdk = "35"
 
 [libraries]

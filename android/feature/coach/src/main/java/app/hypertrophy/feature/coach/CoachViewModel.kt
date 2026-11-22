@@ -277,7 +277,24 @@ class CoachViewModel @Inject constructor(
                 }
                 all.toList()
             }
-            if (sets.isEmpty()) return@launch
+            restJob?.cancel()
+            restJob = null
+            if (sets.isEmpty()) {
+                // A quick workout with no logged sets must still be stoppable.
+                // Show a recap and skip persistence: the outbox requires at
+                // least one set and there are no metrics worth saving.
+                val recap = SessionRecapGenerator.empty(_state.value.exerciseName)
+                _state.update {
+                    it.copy(
+                        recap = recap,
+                        isResting = false,
+                        restSecondsRemaining = 0,
+                        restProgress = 0f,
+                    )
+                }
+                voiceCoach.announce("Session ended. No sets were logged.")
+                return@launch
+            }
 
             val reps = sets.sumOf { it.reps }
             val avgRom = sets.map { it.romPercent }.average().toFloat()

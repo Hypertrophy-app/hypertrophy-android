@@ -4,7 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import app.hypertrophy.core.designsystem.theme.HypertrophyTheme
+import app.hypertrophy.core.designsystem.theme.ThemePreferences
+import app.hypertrophy.core.designsystem.theme.resolveDarkTheme
 import app.hypertrophy.navigation.HypertrophyApp
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -12,8 +15,11 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ThemePreferences.load(applicationContext)
         setContent {
-            HypertrophyTheme {
+            val systemDarkTheme = isSystemInDarkTheme()
+            val darkTheme = ThemePreferences.mode.resolveDarkTheme(systemDarkTheme)
+            HypertrophyTheme(darkTheme = darkTheme) {
                 HypertrophyApp(initialInviteCode = inviteCodeFrom(intent))
             }
         }

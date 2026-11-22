@@ -87,15 +87,8 @@ class TodayViewModel @Inject constructor(
             if (trainingDao.countExercises() == 0) {
                 trainingDao.upsertExercises(ExerciseCatalog.exercises)
             }
-            if (trainingDao.countScheduled(USER_ID) == 0) {
-                trainingDao.upsertScheduledAll(
-                    TodayInsights.defaultWeek(
-                        todayEpochDay = todayEpochDay,
-                        nowMillis = nowMillis,
-                        userId = USER_ID,
-                    ),
-                )
-            }
+            // A fresh install has no planned days. The schedule stays empty
+            // until the user plans a workout; Today renders its empty state.
         }
     }
 
