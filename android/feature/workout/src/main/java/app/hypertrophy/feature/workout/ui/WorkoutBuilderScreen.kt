@@ -25,8 +25,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -365,9 +365,15 @@ private fun BuilderCard(
     onSubstitute: () -> Unit,
 ) {
     val colors = LocalPhoenixColors.current
-    var sets by remember(item.exercise.id) { mutableIntStateOf(item.sets) }
-    var reps by remember(item.exercise.id) { mutableIntStateOf(item.reps) }
-    var weight by remember(item.exercise.id) { mutableStateOf(item.targetWeightKg.toString()) }
+    var weightDraft by remember(item.exercise.id) {
+        mutableStateOf(item.targetWeightKg.toString())
+    }
+    LaunchedEffect(item.targetWeightKg) {
+        val parsed = weightDraft.toDoubleOrNull()
+        if (parsed == null || kotlin.math.abs(parsed - item.targetWeightKg) > 0.001) {
+            weightDraft = item.targetWeightKg.toString()
+        }
+    }
 
     Card(
         colors = CardDefaults.cardColors(containerColor = colors.elevated),
@@ -376,12 +382,12 @@ private fun BuilderCard(
         Column(modifier = Modifier.padding(12.dp)) {
             Text(item.exercise.name, color = colors.textPrimary, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(4.dp))
-            StepperRow("Sets", sets) { value -> sets = value; onSets(value) }
-            StepperRow("Reps", reps) { value -> reps = value; onReps(value) }
+            StepperRow("Sets", item.sets, onSets)
+            StepperRow("Reps", item.reps, onReps)
             OutlinedTextField(
-                value = weight,
+                value = weightDraft,
                 onValueChange = {
-                    weight = it
+                    weightDraft = it
                     it.toDoubleOrNull()?.let(onWeight)
                 },
                 label = { Text("Target kg") },
