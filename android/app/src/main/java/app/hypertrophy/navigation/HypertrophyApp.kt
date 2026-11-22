@@ -41,21 +41,21 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
 
     FireTransitionContainer(transitionKey = backStackEntry?.destination?.route ?: "today") {
         MainScaffold(
-        currentRoute = currentTab,
-        showBottomBar = showChrome,
-        onTabSelected = { route ->
-            currentTab = route
-            when (route) {
-                "today" -> navController.navigate("today") { launchSingleTop = true }
-                "workouts" -> navController.navigate("builder") { launchSingleTop = true }
-                "squad" -> navController.navigate("squad") { launchSingleTop = true }
-                "you" -> navController.navigate("profile") { launchSingleTop = true }
-            }
-        },
-        onQuickWorkout = { navController.navigate("coach") { launchSingleTop = true } },
-        onStartScheduled = { navController.navigate("coach") { launchSingleTop = true } },
-        onHostJoinSquad = { navController.navigate("squad") { launchSingleTop = true } },
-    ) {
+            currentRoute = currentTab,
+            showBottomBar = showChrome,
+            onTabSelected = { route ->
+                currentTab = route
+                when (route) {
+                    "today" -> navController.navigate("today") { launchSingleTop = true }
+                    "workouts" -> navController.navigate("builder") { launchSingleTop = true }
+                    "squad" -> navController.navigate("squad") { launchSingleTop = true }
+                    "you" -> navController.navigate("profile") { launchSingleTop = true }
+                }
+            },
+            onQuickWorkout = { navController.navigate("coach") { launchSingleTop = true } },
+            onStartScheduled = { navController.navigate("coach") { launchSingleTop = true } },
+            onHostJoinSquad = { navController.navigate("squad") { launchSingleTop = true } },
+        ) {
         NavHost(navController = navController, startDestination = "today") {
             composable("today") {
                 TodayRoute(onOpenWorkout = { navController.navigate("workout") })
