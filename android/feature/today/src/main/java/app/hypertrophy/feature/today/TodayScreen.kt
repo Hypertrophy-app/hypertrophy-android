@@ -57,7 +57,7 @@ fun TodayRoute(
         layout = layout,
         onMoveUp = viewModel::moveUp,
         onMoveDown = viewModel::moveDown,
-        onToggle = viewModel::toggle,
+        onToggle = viewModel::setVisible,
         onOpenWorkout = onOpenWorkout,
     )
 }
@@ -68,7 +68,7 @@ fun TodayScreen(
     layout: DashboardLayout,
     onMoveUp: (TodayCard) -> Unit,
     onMoveDown: (TodayCard) -> Unit,
-    onToggle: (TodayCard) -> Unit,
+    onToggle: (TodayCard, Boolean) -> Unit,
     onOpenWorkout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -149,7 +149,7 @@ fun TodayScreen(
                     visible = layout.isVisible(card),
                     onMoveUp = { onMoveUp(card) },
                     onMoveDown = { onMoveDown(card) },
-                    onToggle = { onToggle(card) },
+                    onToggle = { isVisible -> onToggle(card, isVisible) },
                 )
             }
         }
@@ -409,7 +409,7 @@ private fun DashboardCustomizeRow(
     visible: Boolean,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onToggle: () -> Unit,
+    onToggle: (Boolean) -> Unit,
 ) {
     val colors = LocalPhoenixColors.current
     Row(
@@ -427,7 +427,7 @@ private fun DashboardCustomizeRow(
         )
         TextButton(onClick = onMoveUp) { Text("Up", color = colors.textSecondary) }
         TextButton(onClick = onMoveDown) { Text("Down", color = colors.textSecondary) }
-        Switch(checked = visible, onCheckedChange = { onToggle() })
+        Switch(checked = visible, onCheckedChange = onToggle)
     }
 }
 
