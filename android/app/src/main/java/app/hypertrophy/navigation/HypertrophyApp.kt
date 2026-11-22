@@ -58,7 +58,7 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
     ) {
         NavHost(navController = navController, startDestination = "today") {
             composable("today") {
-                TodayRoute(onOpenWorkout = { navController.navigate("builder") })
+                TodayRoute(onOpenWorkout = { navController.navigate("workout") })
             }
             composable("workout") {
                 WorkoutRoute(onBack = { navController.popBackStack() })
