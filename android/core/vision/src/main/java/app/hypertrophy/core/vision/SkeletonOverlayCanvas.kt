@@ -52,7 +52,7 @@ fun SkeletonOverlayCanvas(
 
         val gold = colors.solarGold
         val crimson = colors.formErrorCrimson
-        val shadow = Color.Black.copy(alpha = 0.45f)
+        val shadow = colors.overlayShadow
         val bones = if (formOptimal) gold else gold.copy(alpha = 0.75f)
 
         fun point(index: Int): Offset? {
