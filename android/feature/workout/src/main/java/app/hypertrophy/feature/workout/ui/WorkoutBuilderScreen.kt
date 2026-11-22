@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -422,10 +421,10 @@ private fun StepperRow(label: String, value: Int, onChange: (Int) -> Unit) {
             onClick = { onChange(value - 1) },
             modifier = Modifier.size(48.dp),
         ) {
-            Icon(
-                Icons.Filled.Remove,
-                contentDescription = "Decrease $label",
-                tint = colors.textPrimary,
+            Text(
+                text = "\u2212",
+                style = MaterialTheme.typography.titleLarge,
+                color = colors.textPrimary,
             )
         }
         Text("$value", style = PhoenixMonoTextStyle.copy(fontSize = 16.sp, lineHeight = 20.sp), color = colors.textPrimary)
