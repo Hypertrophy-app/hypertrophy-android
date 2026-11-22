@@ -94,7 +94,7 @@ fun HomeScreen(
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = colors.crimsonPrimary,
-                contentColor = colors.textPrimary,
+                contentColor = colors.onCrimson,
             ),
         ) {
             Text(
