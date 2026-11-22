@@ -46,6 +46,9 @@ data class DashboardLayout(
     fun toggle(card: TodayCard): DashboardLayout =
         if (card in visible) copy(visible = visible - card) else copy(visible = visible + card)
 
+    fun setVisible(card: TodayCard, isVisible: Boolean): DashboardLayout =
+        if (isVisible == (card in visible)) this else toggle(card)
+
     fun visibleCards(): List<TodayCard> = order.filter { it in visible }
 }
 
