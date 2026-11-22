@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -206,7 +205,6 @@ fun CoachScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
                 .padding(horizontal = 16.dp),
         ) {
             CoachTopBar(
@@ -900,7 +898,6 @@ private fun RestOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.canvas.copy(alpha = 0.98f))
-            .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1036,7 +1033,6 @@ private fun RecapOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.canvas)
-            .statusBarsPadding()
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 24.dp),
