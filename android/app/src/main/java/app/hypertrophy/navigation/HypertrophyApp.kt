@@ -18,6 +18,7 @@ import app.hypertrophy.feature.profile.ProfileRoute
 import app.hypertrophy.feature.squad.SquadRoute
 import app.hypertrophy.feature.today.TodayRoute
 import app.hypertrophy.auth.AuthGateScreen
+import app.hypertrophy.core.designsystem.component.FireTransitionContainer
 import app.hypertrophy.feature.workout.WorkoutRoute
 import app.hypertrophy.home.HomeScreen
 
@@ -38,7 +39,8 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
         }
     }
 
-    MainScaffold(
+    FireTransitionContainer(transitionKey = backStackEntry?.destination?.route ?: "today") {
+        MainScaffold(
         currentRoute = currentTab,
         showBottomBar = showChrome,
         onTabSelected = { route ->
@@ -96,6 +98,7 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
                 val code = entry.arguments?.getString("code").orEmpty()
                 SquadRoute(initialInviteCode = code)
             }
+        }
         }
     }
 }
