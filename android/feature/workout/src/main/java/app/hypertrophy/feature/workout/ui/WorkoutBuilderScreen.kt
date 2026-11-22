@@ -19,9 +19,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -413,8 +418,26 @@ private fun StepperRow(label: String, value: Int, onChange: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, color = colors.textSecondary, style = MaterialTheme.typography.labelMedium)
         Spacer(modifier = Modifier.weight(1f))
-        TextButton(onClick = { onChange(value - 1) }) { Text("-", color = colors.textPrimary) }
+        IconButton(
+            onClick = { onChange(value - 1) },
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(
+                Icons.Filled.Remove,
+                contentDescription = "Decrease $label",
+                tint = colors.textPrimary,
+            )
+        }
         Text("$value", style = PhoenixMonoTextStyle.copy(fontSize = 16.sp, lineHeight = 20.sp), color = colors.textPrimary)
-        TextButton(onClick = { onChange(value + 1) }) { Text("+", color = colors.textPrimary) }
+        IconButton(
+            onClick = { onChange(value + 1) },
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(
+                Icons.Filled.Add,
+                contentDescription = "Increase $label",
+                tint = colors.textPrimary,
+            )
+        }
     }
 }
