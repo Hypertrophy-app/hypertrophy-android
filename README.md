@@ -11,6 +11,11 @@ experience; the Cloudflare Worker is a thin sync, squad, and asset layer.
 - [Discussions](https://github.com/Hypertrophy-app/hypertrophy-android/discussions)
 - [Releases](https://github.com/Hypertrophy-app/hypertrophy-android/releases)
 
+Related repositories: [`hypertrophy-site`](https://github.com/Hypertrophy-app/hypertrophy-site)
+holds the public site and the legal pages Play Console requires, and
+[`hypertrophy-brand`](https://github.com/Hypertrophy-app/hypertrophy-brand)
+holds the identity, store assets, listing copy, and Data safety answers.
+
 ```
 hypertrophy/
   backend/   TypeScript Cloudflare Worker (Hono, Drizzle, Clerk, Zod, D1, R2, Durable Objects)
