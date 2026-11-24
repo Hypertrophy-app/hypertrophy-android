@@ -24,8 +24,10 @@ android {
         applicationId = "app.hypertrophy"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        // Release builds override these from the git tag through -P flags.
+        // See .github/workflows/release.yml.
+        versionCode = (providers.gradleProperty("hypertrophy.versionCode").orNull ?: "1").toInt()
+        versionName = providers.gradleProperty("hypertrophy.versionName").orNull ?: "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "CLERK_PUBLISHABLE_KEY", "\"\"")
     }
