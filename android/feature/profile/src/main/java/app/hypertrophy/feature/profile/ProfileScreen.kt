@@ -59,7 +59,8 @@ import kotlin.math.min
 
 @Composable
 fun ProfileRoute(
-    onOpenAuth: () -> Unit,
+    accountEmail: String,
+    onSignOut: () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -72,20 +73,22 @@ fun ProfileRoute(
 
     ProfileScreen(
         state = state,
+        accountEmail = accountEmail,
         onSelectExercise = viewModel::selectExercise,
         onRequestHealthPermissions = { launcher.launch(permissions) },
         onExportToHealthConnect = viewModel::exportToHealthConnect,
-        onOpenAuth = onOpenAuth,
+        onSignOut = onSignOut,
     )
 }
 
 @Composable
 fun ProfileScreen(
     state: ProfileUiState,
+    accountEmail: String,
     onSelectExercise: (String) -> Unit,
     onRequestHealthPermissions: () -> Unit,
     onExportToHealthConnect: () -> Unit,
-    onOpenAuth: () -> Unit,
+    onSignOut: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalPhoenixColors.current
@@ -106,8 +109,25 @@ fun ProfileScreen(
         AppearanceSection()
 
         SectionTitle("Account")
-        TextButton(onClick = onOpenAuth) {
-            Text("Sign-in options", color = colors.solarGold)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = accountEmail,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.textPrimary,
+                )
+                Text(
+                    text = "Signed in on this device",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textSecondary,
+                )
+            }
+            TextButton(onClick = onSignOut) {
+                Text("Sign out", color = colors.solarGold)
+            }
         }
 
         SectionTitle("Muscle recovery")

@@ -51,4 +51,26 @@ class DashboardLayoutTest {
         assertTrue(TodayCard.CONSISTENCY_STRIP !in visible)
         assertEquals(4, visible.size)
     }
+
+    @Test
+    fun collapseAllCollapsesEveryVisibleCard() {
+        val layout = DashboardLayout().collapseAll()
+        assertEquals(DashboardLayout().visible, layout.collapsed)
+        assertTrue(layout.isCollapsed(TodayCard.TODAYS_PLAN))
+    }
+
+    @Test
+    fun toggleCollapsedOnlyAffectsThatCard() {
+        val collapsed = DashboardLayout().collapseAll()
+        val expanded = collapsed.toggleCollapsed(TodayCard.ACTIVE_CHALLENGE)
+        assertTrue(!expanded.isCollapsed(TodayCard.ACTIVE_CHALLENGE))
+        assertTrue(expanded.isCollapsed(TodayCard.TODAYS_PLAN))
+    }
+
+    @Test
+    fun expandAllClearsCollapsedCards() {
+        val expanded = DashboardLayout().collapseAll().expandAll()
+        assertTrue(expanded.collapsed.isEmpty())
+        assertEquals(DashboardLayout(), expanded)
+    }
 }

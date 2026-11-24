@@ -21,6 +21,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -90,6 +91,11 @@ class TodayViewModel @Inject constructor(
             // A fresh install has no planned days. The schedule stays empty
             // until the user plans a workout; Today renders its empty state.
         }
+        viewModelScope.launch {
+            DashboardCollapseSignal.collapse.collect {
+                store.setLayout(store.layout.first().collapseAll())
+            }
+        }
     }
 
     fun moveUp(card: TodayCard) {
@@ -106,6 +112,14 @@ class TodayViewModel @Inject constructor(
 
     fun setVisible(card: TodayCard, isVisible: Boolean) {
         viewModelScope.launch { store.setLayout(layout.value.setVisible(card, isVisible)) }
+    }
+
+    fun toggleCollapsed(card: TodayCard) {
+        viewModelScope.launch { store.setLayout(layout.value.toggleCollapsed(card)) }
+    }
+
+    fun expandAll() {
+        viewModelScope.launch { store.setLayout(layout.value.expandAll()) }
     }
 
     private data class BaseState(

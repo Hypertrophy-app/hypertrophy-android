@@ -20,21 +20,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import app.hypertrophy.core.designsystem.component.PhoenixIgnitionButton
 import app.hypertrophy.core.designsystem.theme.LocalPhoenixColors
 
+private const val CLERK_NOTICE =
+    "Google and passkey sign-in need the Clerk app integration, which is not part of this build yet."
+
 @Composable
 fun AuthGateScreen(
-    onGoogleSignIn: () -> Unit,
-    onPasskeySignIn: () -> Unit,
-    onEmailSignIn: (email: String, password: String) -> Unit,
+    onEmailSignIn: (email: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalPhoenixColors.current
     var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier
@@ -59,33 +62,82 @@ fun AuthGateScreen(
         )
         Spacer(modifier = Modifier.height(32.dp))
 
-        PhoenixIgnitionButton(text = "Continue with Google", onClick = onGoogleSignIn, modifier = Modifier.fillMaxWidth())
-        Spacer(modifier = Modifier.height(12.dp))
-        PhoenixIgnitionButton(text = "Sign in with Passkey", onClick = onPasskeySignIn, modifier = Modifier.fillMaxWidth())
-
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(text = "or", color = colors.textSecondary)
-        Spacer(modifier = Modifier.height(12.dp))
-
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                error = null
+            },
             label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(16.dp))
+
         PhoenixIgnitionButton(
-            text = "Sign in",
-            onClick = { onEmailSignIn(email, password) },
+            text = "Sign in with email",
+            onClick = {
+                val trimmed = email.trim()
+                val localPart = trimmed.substringBefore('@')
+                val domain = trimmed.substringAfter('@', "")
+                when {
+                    localPart.isBlank() || domain.isBlank() || !domain.contains('.') -> {
+                        error = "Enter a valid email address."
+                        notice = null
+                    }
+
+                    else -> {
+                        error = null
+                        notice = null
+                        onEmailSignIn(trimmed)
+                    }
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+        PhoenixIgnitionButton(
+            text = "Continue with Google",
+            onClick = {
+                error = null
+                notice = CLERK_NOTICE
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        PhoenixIgnitionButton(
+            text = "Sign in with Passkey",
+            onClick = {
+                error = null
+                notice = CLERK_NOTICE
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        error?.let { message ->
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.formErrorCrimson,
+            )
+        }
+        notice?.let { message ->
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textSecondary,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "The account is stored on this device. Cloud sync unlocks once Clerk sign-in lands.",
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.textSecondary,
         )
     }
 }

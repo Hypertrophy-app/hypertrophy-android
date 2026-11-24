@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -13,17 +14,29 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import app.hypertrophy.auth.AuthGateScreen
+import app.hypertrophy.auth.SessionStore
+import app.hypertrophy.core.designsystem.component.FireTransitionContainer
 import app.hypertrophy.feature.coach.CoachRoute
 import app.hypertrophy.feature.profile.ProfileRoute
 import app.hypertrophy.feature.squad.SquadRoute
+import app.hypertrophy.feature.today.DashboardCollapseSignal
 import app.hypertrophy.feature.today.TodayRoute
-import app.hypertrophy.auth.AuthGateScreen
-import app.hypertrophy.core.designsystem.component.FireTransitionContainer
 import app.hypertrophy.feature.workout.WorkoutRoute
 import app.hypertrophy.home.HomeScreen
 
 @Composable
 fun HypertrophyApp(initialInviteCode: String? = null) {
+    val context = LocalContext.current
+    val session = SessionStore.session
+
+    // No local account means no dashboard, workout or squad screen: the gate
+    // is the first surface the app shows.
+    if (session == null) {
+        AuthGateScreen(onEmailSignIn = { email -> SessionStore.signIn(context, email) })
+        return
+    }
+
     val navController: NavHostController = rememberNavController()
     var currentTab by remember { mutableStateOf("today") }
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -52,7 +65,12 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
                     "you" -> navController.navigate("profile") { launchSingleTop = true }
                 }
             },
-            onQuickWorkout = { navController.navigate("coach") { launchSingleTop = true } },
+            onQuickWorkout = {
+                // Starting a quick workout leaves the dashboard collapsed, so
+                // Today comes back compact instead of four full cards.
+                DashboardCollapseSignal.requestCollapse()
+                navController.navigate("coach") { launchSingleTop = true }
+            },
             onStartScheduled = { navController.navigate("coach") { launchSingleTop = true } },
             onHostJoinSquad = { navController.navigate("squad") { launchSingleTop = true } },
         ) {
@@ -73,19 +91,9 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
                 SquadRoute()
             }
             composable("profile") {
-                ProfileRoute(onOpenAuth = { navController.navigate("auth") })
-            }
-            composable("auth") {
-                val enterHome: () -> Unit = {
-                    navController.navigate("home") {
-                        launchSingleTop = true
-                        popUpTo("auth") { inclusive = true }
-                    }
-                }
-                AuthGateScreen(
-                    onGoogleSignIn = enterHome,
-                    onPasskeySignIn = enterHome,
-                    onEmailSignIn = { _, _ -> enterHome() },
+                ProfileRoute(
+                    accountEmail = session.email,
+                    onSignOut = { SessionStore.signOut(context) },
                 )
             }
             composable("home") {

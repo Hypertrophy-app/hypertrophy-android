@@ -95,8 +95,11 @@ card/auth middleware contracts in `backend`.
 ### Current gaps
 
 - Clerk sign-in is not initialized in the Android app until the platform
-  baseline supports the catalog-pinned Clerk release. Local data is therefore
-  stored under `local-user`; network requests still require a valid backend JWT.
+  baseline supports the catalog-pinned Clerk release. The app now gates every
+  screen behind a device-local account (`SessionStore`): the email is persisted
+  locally, no password or token is stored, and Google/passkey sign-in reports
+  that they need the Clerk integration. Local data is therefore still stored
+  under `local-user`; network requests still require a valid backend JWT.
 - Firebase Cloud Messaging is not configured, so squad invites are delivered by
   invite code or deep link rather than push notifications. This avoids adding a
   paid cloud dependency to an otherwise local-first stack.

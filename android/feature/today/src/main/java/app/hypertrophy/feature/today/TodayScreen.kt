@@ -2,6 +2,7 @@ package app.hypertrophy.feature.today
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -58,6 +60,8 @@ fun TodayRoute(
         onMoveUp = viewModel::moveUp,
         onMoveDown = viewModel::moveDown,
         onToggle = viewModel::setVisible,
+        onToggleCollapsed = viewModel::toggleCollapsed,
+        onExpandAll = viewModel::expandAll,
         onOpenWorkout = onOpenWorkout,
     )
 }
@@ -69,6 +73,8 @@ fun TodayScreen(
     onMoveUp: (TodayCard) -> Unit,
     onMoveDown: (TodayCard) -> Unit,
     onToggle: (TodayCard, Boolean) -> Unit,
+    onToggleCollapsed: (TodayCard) -> Unit,
+    onExpandAll: () -> Unit,
     onOpenWorkout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -122,7 +128,11 @@ fun TodayScreen(
         }
 
         layout.visibleCards().forEach { card ->
-            TodayCardShell(card = card) {
+            TodayCardShell(
+                card = card,
+                collapsed = layout.isCollapsed(card),
+                onToggleCollapsed = { onToggleCollapsed(card) },
+            ) {
                 when (card) {
                     TodayCard.TODAYS_PLAN -> PlanCard(state = state, onOpenWorkout = onOpenWorkout)
                     TodayCard.SQUAD_LIVE_TICKER -> SquadTickerCard(progress = state.squadProgress)
@@ -134,11 +144,18 @@ fun TodayScreen(
         }
 
         Spacer(modifier = Modifier.height(4.dp))
-        TextButton(onClick = { customizing = !customizing }) {
-            Text(
-                text = if (customizing) "Done customizing" else "Customize cards",
-                color = colors.solarGold,
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { customizing = !customizing }) {
+                Text(
+                    text = if (customizing) "Done customizing" else "Customize cards",
+                    color = colors.solarGold,
+                )
+            }
+            if (layout.collapsed.isNotEmpty()) {
+                TextButton(onClick = onExpandAll) {
+                    Text("Expand all cards", color = colors.textSecondary)
+                }
+            }
         }
 
         if (customizing) {
@@ -162,6 +179,8 @@ fun TodayScreen(
 @Composable
 private fun TodayCardShell(
     card: TodayCard,
+    collapsed: Boolean,
+    onToggleCollapsed: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = LocalPhoenixColors.current
@@ -174,16 +193,39 @@ private fun TodayCardShell(
         modifier = Modifier
             .fillMaxWidth()
             .then(morphModifier)
-            .background(colors.surface, RoundedCornerShape(20.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .background(colors.surface, RoundedCornerShape(20.dp)),
     ) {
-        Text(
-            text = cardTitle(card),
-            style = PhoenixMonoTextStyle.copy(fontSize = 13.sp, lineHeight = 15.sp),
-            color = colors.textSecondary,
-        )
-        content()
+        // The whole header row is the collapse control so the card stays one
+        // tap away from folding down to a title strip.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clickable(
+                    onClickLabel = if (collapsed) "Expand ${cardTitle(card)}" else "Collapse ${cardTitle(card)}",
+                ) { onToggleCollapsed() }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = cardTitle(card),
+                modifier = Modifier.weight(1f),
+                style = PhoenixMonoTextStyle.copy(fontSize = 13.sp, lineHeight = 15.sp),
+                color = colors.textSecondary,
+            )
+            Text(
+                text = if (collapsed) "SHOW" else "HIDE",
+                style = PhoenixMonoTextStyle.copy(fontSize = 11.sp, lineHeight = 13.sp),
+                color = colors.solarGold,
+            )
+        }
+        if (!collapsed) {
+            Column(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                content = content,
+            )
+        }
     }
 }
 

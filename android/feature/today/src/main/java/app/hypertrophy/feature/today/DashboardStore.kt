@@ -7,6 +7,9 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 
 /**
@@ -24,8 +27,11 @@ enum class TodayCard(val key: String, val defaultVisible: Boolean) {
 data class DashboardLayout(
     val order: List<TodayCard> = TodayCard.entries.toList(),
     val visible: Set<TodayCard> = TodayCard.entries.toSet(),
+    val collapsed: Set<TodayCard> = emptySet(),
 ) {
     fun isVisible(card: TodayCard): Boolean = card in visible
+
+    fun isCollapsed(card: TodayCard): Boolean = card in collapsed
 
     fun moveUp(card: TodayCard): DashboardLayout {
         val index = order.indexOf(card)
@@ -49,13 +55,35 @@ data class DashboardLayout(
     fun setVisible(card: TodayCard, isVisible: Boolean): DashboardLayout =
         if (isVisible == (card in visible)) this else toggle(card)
 
+    fun toggleCollapsed(card: TodayCard): DashboardLayout =
+        if (card in collapsed) copy(collapsed = collapsed - card) else copy(collapsed = collapsed + card)
+
+    fun collapseAll(): DashboardLayout = copy(collapsed = visible)
+
+    fun expandAll(): DashboardLayout = copy(collapsed = emptySet())
+
     fun visibleCards(): List<TodayCard> = order.filter { it in visible }
+}
+
+/**
+ * One-shot bridge from the shell's Quick Workout launcher to the dashboard so
+ * starting a quick workout leaves every visible card collapsed behind it.
+ */
+object DashboardCollapseSignal {
+    private val requests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    val collapse: SharedFlow<Unit> = requests.asSharedFlow()
+
+    fun requestCollapse() {
+        requests.tryEmit(Unit)
+    }
 }
 
 class DashboardStore(private val dataStore: DataStore<Preferences>) {
     private object Keys {
         val ORDER = stringPreferencesKey("today_card_order")
         val VISIBLE = stringPreferencesKey("today_card_visible")
+        val COLLAPSED = stringPreferencesKey("today_card_collapsed")
     }
 
     val layout: Flow<DashboardLayout> = dataStore.data.map { prefs ->
@@ -70,13 +98,18 @@ class DashboardStore(private val dataStore: DataStore<Preferences>) {
             ?.mapNotNull { name -> TodayCard.entries.firstOrNull { it.name == name } }
             ?.toSet()
             ?: TodayCard.entries.toSet()
-        DashboardLayout(order = order, visible = visible)
+        val collapsed = prefs[Keys.COLLAPSED]?.split(",")
+            ?.mapNotNull { name -> TodayCard.entries.firstOrNull { it.name == name } }
+            ?.toSet()
+            ?: emptySet()
+        DashboardLayout(order = order, visible = visible, collapsed = collapsed.filter { it in visible }.toSet())
     }
 
     suspend fun setLayout(layout: DashboardLayout) {
         dataStore.edit { prefs ->
             prefs[Keys.ORDER] = layout.order.joinToString(",") { it.name }
             prefs[Keys.VISIBLE] = layout.visible.joinToString(",") { it.name }
+            prefs[Keys.COLLAPSED] = layout.collapsed.joinToString(",") { it.name }
         }
     }
 }

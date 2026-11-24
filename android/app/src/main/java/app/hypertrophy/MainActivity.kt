@@ -9,6 +9,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.view.WindowCompat
+import app.hypertrophy.auth.SessionStore
 import app.hypertrophy.core.designsystem.theme.HypertrophyTheme
 import app.hypertrophy.core.designsystem.theme.ThemePreferences
 import app.hypertrophy.core.designsystem.theme.resolveDarkTheme
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ThemePreferences.load(applicationContext)
+        SessionStore.load(applicationContext)
         inviteCodeState.value = inviteCodeFrom(intent)
         enableEdgeToEdge()
         setContent {
