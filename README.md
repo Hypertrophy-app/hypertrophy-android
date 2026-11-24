@@ -1,7 +1,15 @@
 # HYPERTROPHY
 
+[![CI](https://github.com/Hypertrophy-app/hypertrophy-android/actions/workflows/ci.yml/badge.svg)](https://github.com/Hypertrophy-app/hypertrophy-android/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Hypertrophy-app/hypertrophy-android?include_prereleases&label=release)](https://github.com/Hypertrophy-app/hypertrophy-android/releases)
+
 Offline-first strength training monorepo. The Android client owns the training
 experience; the Cloudflare Worker is a thin sync, squad, and asset layer.
+
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Discussions](https://github.com/Hypertrophy-app/hypertrophy-android/discussions)
+- [Releases](https://github.com/Hypertrophy-app/hypertrophy-android/releases)
 
 ```
 hypertrophy/
