@@ -16,7 +16,7 @@
   "dependencies": {
     "@clerk/backend": "^3.29.0",
     "drizzle-orm": "^0.45.4",
-    "hono": "^4.13.18",
+    "hono": "^4.13.19",
     "zod": "^4.6.7"
   },
   "devDependencies": {
