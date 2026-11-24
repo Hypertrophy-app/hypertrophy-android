@@ -96,4 +96,6 @@ and the version is live on the intended track.
 ## Reporting
 
 Defects and scoped proposals go to Issues. Questions and open-ended ideas go to
-Discussions. Vulnerabilities go through [`SECURITY.md`](SECURITY.md).
+Discussions. Vulnerabilities go through [`SECURITY.md`](SECURITY.md). Everyone
+taking part is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
