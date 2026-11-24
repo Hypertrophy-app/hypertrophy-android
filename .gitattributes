@@ -1,0 +1,22 @@
+# Normalize text files to LF in the repository. Android and Gradle tooling are
+# happier with LF, and the team works across Windows and Linux.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ttf binary
+*.otf binary
+*.task binary
+*.keystore binary
+*.jks binary
+*.aab binary
+*.apk binary
+
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+*.gradle.kts linguist-language=Kotlin
+*.kt linguist-language=Kotlin
