@@ -14,7 +14,7 @@
     "verify": "tsc --noEmit && wrangler deploy --dry-run"
   },
   "dependencies": {
-    "@clerk/backend": "^3.29.0",
+    "@clerk/backend": "^3.31.4",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.18",
     "zod": "^4.6.7"
