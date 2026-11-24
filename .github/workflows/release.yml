@@ -27,7 +27,7 @@ jobs:
       run:
         working-directory: android
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Require signing secrets
         env:
@@ -38,7 +38,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
@@ -52,7 +52,7 @@ jobs:
           SDKMANAGER="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -n 1)"
           "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Restore keystore
         env:
@@ -92,7 +92,7 @@ jobs:
             app/build/outputs/bundle/release/app-release.aab
 
       - name: Upload bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hypertrophy-aab-${{ github.ref_name }}
           path: android/app/build/outputs/bundle/release/app-release.aab
