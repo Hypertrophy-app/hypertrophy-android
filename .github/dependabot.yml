@@ -1,17 +1,22 @@
 version: 2
 
+# Majors are deliberate migrations, not pull requests. Ignore them here and
+# bump them by hand with the build file, so the catalog never jumps a Kotlin,
+# AGP, or TypeScript major without a baseline decision.
 updates:
   - package-ecosystem: gradle
     directory: /android
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 3
     labels:
       - dependencies
       - area:android
     commit-message:
       prefix: "build"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       androidx:
         patterns:
@@ -19,10 +24,6 @@ updates:
       compose:
         patterns:
           - "*compose*"
-      kotlin:
-        patterns:
-          - "*kotlin*"
-          - "*ksp*"
       testing:
         patterns:
           - "*junit*"
@@ -31,14 +32,16 @@ updates:
   - package-ecosystem: npm
     directory: /backend
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 3
     labels:
       - dependencies
       - area:backend
     commit-message:
       prefix: "build"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       cloudflare:
         patterns:
@@ -50,6 +53,7 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    open-pull-requests-limit: 1
     labels:
       - dependencies
       - area:release
