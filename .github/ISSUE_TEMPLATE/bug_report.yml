@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in the app or backend behaves incorrectly.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Do not paste API keys, keystore material, or
+        personal data. Security issues go through SECURITY.md instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The observed behaviour, including any error message.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Today
+        2. Start the scheduled workout
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Workout planning and logging
+        - Pose coach and kinematics
+        - Squad and sync
+        - Today dashboard
+        - Profile, recovery, and Health Connect
+        - Design system
+        - Backend
+        - Build and release
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: Pixel 8, Android 15
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: App version
+      description: Settings, or the versionName from the build you installed.
+      placeholder: 0.1.0 (1)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Logcat output or Worker tail, with secrets removed.
+      render: shell
+    validations:
+      required: false

@@ -1,0 +1,52 @@
+name: Feature request
+description: Propose a capability for the app or backend.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hypertrophy runs entirely on the device wherever possible. Proposals
+        that need a paid API, paid SaaS, or a cloud build service will be
+        declined, so describe the offline path first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What a lifter cannot do today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: offline
+    attributes:
+      label: How it works offline
+      description: Which part is local, which part touches the network, and what the user sees with no signal.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Workout planning and logging
+        - Pose coach and kinematics
+        - Squad and sync
+        - Today dashboard
+        - Profile, recovery, and Health Connect
+        - Design system
+        - Backend
+        - Build and release
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

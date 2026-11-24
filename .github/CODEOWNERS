@@ -1,0 +1,12 @@
+# Default owners for everything in the repository.
+* @kaadipranav
+
+# Android client
+/android/app/                @kaadipranav
+/android/core/               @kaadipranav
+/android/feature/            @kaadipranav
+/android/gradle/             @kaadipranav
+
+# Edge backend and release pipeline
+/backend/                    @kaadipranav
+/.github/                    @kaadipranav

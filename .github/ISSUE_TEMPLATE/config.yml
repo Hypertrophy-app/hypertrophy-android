@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/Hypertrophy-app/hypertrophy-android/discussions
+    about: Ask in Discussions. Issues are for defects and scoped proposals.
+  - name: Security report
+    url: https://github.com/Hypertrophy-app/hypertrophy-android/security/advisories/new
+    about: Report a vulnerability privately. Never open a public issue for security.
