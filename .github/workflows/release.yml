@@ -43,12 +43,14 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # The ubuntu runner image ships the Android SDK at $ANDROID_HOME. Install
-      # the exact packages this build targets instead of relying on the image
-      # defaults; setup-android currently fails resolving the removed `tools`
-      # package.
+      # The ubuntu runner image ships the Android SDK, but does not put
+      # sdkmanager on PATH. Resolve the installed cmdline-tools directly and
+      # install the exact packages this build targets.
       - name: Install SDK packages
-        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+        run: |
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -n 1)"
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - uses: gradle/actions/setup-gradle@v4
 
