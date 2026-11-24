@@ -60,10 +60,12 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
-
+      # The ubuntu runner image ships the Android SDK at $ANDROID_HOME. Install
+      # the exact packages this build targets instead of relying on the image
+      # defaults; setup-android currently fails resolving the removed `tools`
+      # package.
       - name: Install SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - uses: gradle/actions/setup-gradle@v4
 
