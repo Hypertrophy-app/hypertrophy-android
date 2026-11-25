@@ -22,6 +22,18 @@ fun interface TokenProvider {
 object AuthSessionStore {
     @Volatile
     var token: String? = null
+
+    /**
+     * Live source for the session JWT, wired by the app layer to Clerk. Keeping
+     * this as a lambda means the database/network modules never depend on Clerk,
+     * and every request gets a freshly minted token instead of one that may have
+     * expired since sign-in.
+     */
+    @Volatile
+    var tokenRefresher: (suspend () -> String?)? = null
+
+    /** Reads a fresh token when a refresher is wired, otherwise the cached one. */
+    suspend fun currentToken(): String? = tokenRefresher?.invoke() ?: token
 }
 
 class AuthTokenConfig {

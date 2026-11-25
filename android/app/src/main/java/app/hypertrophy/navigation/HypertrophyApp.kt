@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -14,7 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import app.hypertrophy.auth.AuthGateScreen
+import app.hypertrophy.auth.AuthGateRoute
 import app.hypertrophy.auth.SessionStore
 import app.hypertrophy.core.designsystem.component.FireTransitionContainer
 import app.hypertrophy.feature.coach.CoachRoute
@@ -27,13 +26,12 @@ import app.hypertrophy.home.HomeScreen
 
 @Composable
 fun HypertrophyApp(initialInviteCode: String? = null) {
-    val context = LocalContext.current
     val session = SessionStore.session
 
-    // No local account means no dashboard, workout or squad screen: the gate
-    // is the first surface the app shows.
+    // No active Clerk session means no dashboard, workout or squad screen: the
+    // gate is the first surface the app shows.
     if (session == null) {
-        AuthGateScreen(onEmailSignIn = { email -> SessionStore.signIn(context, email) })
+        AuthGateRoute()
         return
     }
 
@@ -93,7 +91,7 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
             composable("profile") {
                 ProfileRoute(
                     accountEmail = session.email,
-                    onSignOut = { SessionStore.signOut(context) },
+                    onSignOut = { SessionStore.signOut() },
                 )
             }
             composable("home") {

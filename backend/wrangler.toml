@@ -8,7 +8,7 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "hypertrophy-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "ba6939cc-125a-4e08-82ab-ee1fb4f05cab"
 migrations_dir = "drizzle/migrations"
 
 [[r2_buckets]]
@@ -24,8 +24,11 @@ tag = "v1"
 new_sqlite_classes = ["SquadRoomDO"]
 
 [vars]
-ENVIRONMENT = "development"
-CLERK_AUTHORIZED_PARTIES = "https://api.hypertrophy.app"
+ENVIRONMENT = "production"
+# No custom domain is owned yet, so the Worker is served from its workers.dev
+# host. This is the only origin that can legitimately produce an azp claim;
+# Clerk native tokens omit azp entirely, so the check never fires for the app.
+CLERK_AUTHORIZED_PARTIES = "https://hypertrophy-api.watchllm.workers.dev"
 
 [observability]
 enabled = true

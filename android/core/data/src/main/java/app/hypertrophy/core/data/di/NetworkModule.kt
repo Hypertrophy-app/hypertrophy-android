@@ -20,7 +20,7 @@ import kotlinx.serialization.json.Json
 object NetworkModule {
     @Provides
     @Singleton
-    fun provideTokenProvider(): TokenProvider = TokenProvider { AuthSessionStore.token }
+    fun provideTokenProvider(): TokenProvider = TokenProvider { AuthSessionStore.currentToken() }
 
     @Provides
     @Singleton

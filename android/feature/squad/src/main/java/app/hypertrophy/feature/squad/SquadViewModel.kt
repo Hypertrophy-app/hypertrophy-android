@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.hypertrophy.core.data.local.SquadDao
 import app.hypertrophy.core.data.network.TokenProvider
 import app.hypertrophy.core.data.network.createAuthenticatedHttpClient
+import app.hypertrophy.core.data.remote.HypertrophyApi
 import app.hypertrophy.core.data.squad.SquadLiveBus
 import app.hypertrophy.core.data.squad.TeammateSetProgress
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -72,7 +73,7 @@ class SquadViewModel @Inject constructor(
     private val _state = MutableStateFlow(SquadUiState())
     val state: StateFlow<SquadUiState> = _state.asStateFlow()
 
-    private val baseUrl = "https://api.hypertrophy.app/api"
+    private val baseUrl = "${HypertrophyApi.BASE_URL}/api"
 
     private var socket: SquadWebSocketClient? = null
     private var socketJob: Job? = null
@@ -181,7 +182,7 @@ class SquadViewModel @Inject constructor(
         localHostUserId = null
         socketJob?.cancel()
         socket?.disconnect()
-        socket = SquadWebSocketClient("wss://api.hypertrophy.app", tokenProvider)
+        socket = SquadWebSocketClient(HypertrophyApi.BASE_URL.replaceFirst("https://", "wss://"), tokenProvider)
         socketJob = viewModelScope.launch {
             socket?.incoming?.collect { text -> applyEvent(SquadWireParser.parse(text)) }
         }

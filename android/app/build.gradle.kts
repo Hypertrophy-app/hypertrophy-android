@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
@@ -20,6 +19,18 @@ android {
         keystoreProperties.load(keystorePropertiesFile.inputStream())
     }
 
+    // The publishable key is safe to ship in the app; the secret key never
+    // leaves the Worker. local.properties is gitignored, so the checked-in
+    // source keeps no environment-specific Clerk instance.
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use(localProperties::load)
+    }
+    val clerkPublishableKey = localProperties.getProperty("CLERK_PUBLISHABLE_KEY")
+        ?: providers.gradleProperty("CLERK_PUBLISHABLE_KEY").orNull
+        ?: ""
+
     defaultConfig {
         applicationId = "app.hypertrophy"
         minSdk = libs.versions.minSdk.get().toInt()
@@ -29,7 +40,7 @@ android {
         versionCode = (providers.gradleProperty("hypertrophy.versionCode").orNull ?: "1").toInt()
         versionName = providers.gradleProperty("hypertrophy.versionName").orNull ?: "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "CLERK_PUBLISHABLE_KEY", "\"\"")
+        buildConfigField("String", "CLERK_PUBLISHABLE_KEY", "\"$clerkPublishableKey\"")
     }
 
     signingConfigs {
@@ -97,11 +108,13 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
@@ -115,10 +128,9 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     ksp(libs.hilt.compiler)
 
-    // Clerk UI is pinned in the version catalog. Release 1.1.10 imports Compose
-    // BOM 2026.06 and Kotlin 2.4.20, which would override the compileSdk 35 /
-    // Kotlin 2.1 baseline, so it is not attached to this module yet.
-    // implementation(libs.clerk.android.ui)
+    // API-only Clerk artifact: the app keeps its own Phoenix auth surfaces
+    // instead of pulling in Clerk's prebuilt Compose screens.
+    implementation(libs.clerk.android.api)
 
     testImplementation(libs.junit)
 }
