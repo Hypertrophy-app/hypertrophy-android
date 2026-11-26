@@ -20,7 +20,7 @@ clerk = "1.5.0"
 camerax = "1.4.2"
 mediapipe = "0.10.21"
 # SceneView 4.69.5 requires compileSdk 37 and Kotlin 2.4; pinned per spec.
-sceneview = "4.69.5"
+sceneview = "4.70.0"
 healthConnect = "1.1.0"
 kotlinxCoroutines = "1.10.2"
 datastore = "1.1.1"
