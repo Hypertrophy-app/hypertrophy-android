@@ -63,6 +63,9 @@ interface TrainingDao {
     @Query("SELECT * FROM workout_templates WHERE id = :id LIMIT 1")
     suspend fun findTemplate(id: String): WorkoutTemplateEntity?
 
+    @Query("DELETE FROM workout_templates WHERE id = :id AND user_id = :userId")
+    suspend fun deleteTemplate(id: String, userId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertScheduledOne(entry: ScheduledWorkoutEntity)
 
@@ -100,8 +103,23 @@ interface TrainingDao {
     )
     suspend fun overdueBefore(userId: String, todayEpochDay: Long): List<ScheduledWorkoutEntity>
 
+    @Query("SELECT * FROM scheduled_workouts WHERE id = :id LIMIT 1")
+    suspend fun findScheduled(id: String): ScheduledWorkoutEntity?
+
+    @Query(
+        "SELECT * FROM scheduled_workouts WHERE user_id = :userId AND scheduled_day = :epochDay " +
+            "ORDER BY created_at ASC",
+    )
+    suspend fun scheduledForDay(userId: String, epochDay: Long): List<ScheduledWorkoutEntity>
+
     @Query("DELETE FROM scheduled_workouts WHERE id = :id")
     suspend fun deleteScheduled(id: String)
+
+    @Query(
+        "UPDATE scheduled_workouts SET is_completed = 1 " +
+            "WHERE id = :id AND user_id = :userId",
+    )
+    suspend fun markScheduledCompleted(id: String, userId: String)
 
     /**
      * Active or upcoming challenges for every squad the user belongs to. The

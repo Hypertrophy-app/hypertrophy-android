@@ -2,7 +2,13 @@ package app.hypertrophy.feature.coach
 
 import android.content.Intent
 import androidx.camera.core.CameraSelector
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import app.hypertrophy.core.data.squad.SquadLiveBus
 import kotlinx.coroutines.delay
@@ -79,6 +86,7 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun CoachRoute(
+    workoutId: String? = null,
     onBack: () -> Unit,
     viewModel: CoachViewModel = hiltViewModel(),
 ) {
@@ -86,6 +94,12 @@ fun CoachRoute(
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     var announcedReps by remember { mutableStateOf(0) }
+
+    // Route arguments are resolved once. The view model guards against a
+    // second start so recomposition cannot reload or duplicate a plan.
+    LaunchedEffect(workoutId) {
+        viewModel.start(workoutId)
+    }
 
     // A long haptic pulses at gym distance on every validated rep.
     LaunchedEffect(state.reps) {
@@ -103,6 +117,7 @@ fun CoachRoute(
     CoachScreen(
         state = state,
         onPoseFrame = viewModel::onPoseFrame,
+        onSelectExercise = viewModel::selectExercise,
         onSelectKind = viewModel::selectKind,
         onToggleAutoClassify = viewModel::toggleAutoClassify,
         onAdjustWeight = viewModel::adjustWeight,
@@ -127,11 +142,7 @@ fun CoachRoute(
                 )
             }
         },
-        onClearRecap = viewModel::clearRecap,
-        onFinishWorkout = {
-            viewModel.clearRecap()
-            onBack()
-        },
+        onFinishWorkout = onBack,
         onBack = onBack,
     )
 }
@@ -147,6 +158,7 @@ fun CoachRoute(
 fun CoachScreen(
     state: CoachUiState,
     onPoseFrame: (PoseFrame) -> Unit,
+    onSelectExercise: (Int) -> Unit,
     onSelectKind: (ExerciseKind) -> Unit,
     onToggleAutoClassify: () -> Unit,
     onAdjustWeight: (Double) -> Unit,
@@ -159,18 +171,20 @@ fun CoachScreen(
     onNextTrack: () -> Unit,
     onOpenMusicSettings: () -> Unit,
     onShareRecap: () -> Unit,
-    onClearRecap: () -> Unit,
     onFinishWorkout: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalPhoenixColors.current
     var cameraError by remember { mutableStateOf<String?>(null) }
+    // The camera and skeleton are the primary surface, so the HUD starts
+    // compact. Athletes can expand the full controls when adjusting a set.
+    var hudExpanded by rememberSaveable { mutableStateOf(false) }
 
     // Back dismisses the recap or rest overlay before leaving the session.
     BackHandler(enabled = state.recap != null || state.isResting) {
         when {
-            state.recap != null -> onClearRecap()
+            state.recap != null -> onFinishWorkout()
             else -> onSkipRest()
         }
     }
@@ -214,7 +228,22 @@ fun CoachScreen(
                 onBack = onBack,
                 onEndSession = onEndSession,
             )
+            if (state.exerciseCount > 1 && state.queue.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                ExerciseQueueStrip(
+                    queue = state.queue,
+                    onSelect = onSelectExercise,
+                )
+            }
             Spacer(modifier = Modifier.height(10.dp))
+            state.planNotice?.let { notice ->
+                Text(
+                    text = notice,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.solarGold,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
             ExerciseKindChips(
                 selected = state.kind,
                 autoClassify = state.autoClassify,
@@ -246,6 +275,8 @@ fun CoachScreen(
 
             CoachHud(
                 state = state,
+                expanded = hudExpanded,
+                onToggleExpanded = { hudExpanded = !hudExpanded },
                 onAdjustWeight = onAdjustWeight,
                 onAdjustTargetReps = onAdjustTargetReps,
                 onLogSet = onLogSet,
@@ -271,7 +302,6 @@ fun CoachScreen(
             RecapOverlay(
                 recap = recap,
                 onShare = onShareRecap,
-                onDone = onClearRecap,
                 onFinish = onFinishWorkout,
             )
         }
@@ -301,8 +331,17 @@ private fun CoachTopBar(
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "SET ${state.sets + 1}",
-                style = PhoenixMonoTextStyle.copy(fontSize = 16.sp, lineHeight = 18.sp),
+                text = buildString {
+                    append("EX ")
+                    append(state.exerciseIndex + 1)
+                    append('/')
+                    append(state.exerciseCount)
+                    append(" | SET ")
+                    append((state.sets + 1).coerceAtMost(state.targetSets))
+                    append('/')
+                    append(state.targetSets)
+                },
+                style = PhoenixMonoTextStyle.copy(fontSize = 14.sp, lineHeight = 16.sp),
                 color = colors.solarGold,
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -319,6 +358,15 @@ private fun CoachTopBar(
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
+        if (state.workoutTitle.isNotBlank()) {
+            Text(
+                text = state.workoutTitle.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Text(
             text = state.exerciseName.uppercase(),
             style = MaterialTheme.typography.headlineMedium,
@@ -329,6 +377,55 @@ private fun CoachTopBar(
             style = MaterialTheme.typography.labelMedium,
             color = colors.textSecondary,
         )
+    }
+}
+
+/** Thin planned-exercise selector; it never expands over the camera feed. */
+@Composable
+private fun ExerciseQueueStrip(
+    queue: List<CoachQueueItem>,
+    onSelect: (Int) -> Unit,
+) {
+    val colors = LocalPhoenixColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        queue.forEachIndexed { index, item ->
+            val complete = item.completedSets >= item.targetSets
+            val background = when {
+                item.isCurrent -> colors.crimsonPrimary
+                complete -> colors.solarGold.copy(alpha = 0.22f)
+                else -> colors.surface.copy(alpha = 0.86f)
+            }
+            val contentColor = when {
+                item.isCurrent -> colors.onCrimson
+                complete -> colors.solarGold
+                else -> colors.textSecondary
+            }
+            Text(
+                text = "${index + 1}. ${item.name} ${item.completedSets}/${item.targetSets}",
+                style = MaterialTheme.typography.labelMedium,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .heightIn(min = 36.dp)
+                    .wrapContentSize()
+                    .clip(RoundedCornerShape(50))
+                    .background(background)
+                    .border(
+                        1.dp,
+                        if (complete && !item.isCurrent) colors.solarGold.copy(alpha = 0.6f)
+                        else Color.Transparent,
+                        RoundedCornerShape(50),
+                    )
+                    .clickable(onClick = { onSelect(index) })
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
     }
 }
 
@@ -488,6 +585,8 @@ private fun FormBanner(cue: FormCue) {
 @Composable
 private fun CoachHud(
     state: CoachUiState,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
     onAdjustWeight: (Double) -> Unit,
     onAdjustTargetReps: (Int) -> Unit,
     onLogSet: () -> Unit,
@@ -503,85 +602,173 @@ private fun CoachHud(
             .fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
             .background(colors.surface.copy(alpha = 0.95f))
-            .padding(16.dp),
+            .animateContentSize(),
     ) {
-        TempoBars(phase = state.phase, tempoLabel = state.tempoLabel)
-        Spacer(modifier = Modifier.height(14.dp))
-        DepthGauge(
-            romPercent = state.romPercent,
-            angle = state.angle,
-            targetAngle = state.targetAngle,
-        )
-        Spacer(modifier = Modifier.height(14.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clickable(onClick = onToggleExpanded)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "LIVE CONTROLS",
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textSecondary,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = if (expanded) "HIDE" else "SHOW",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.solarGold,
+            )
+        }
 
-        Row(verticalAlignment = Alignment.Bottom) {
-            Column(modifier = Modifier.weight(1f)) {
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            Column(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+            ) {
+                TempoBars(phase = state.phase, tempoLabel = state.tempoLabel)
+                Spacer(modifier = Modifier.height(14.dp))
+                DepthGauge(
+                    romPercent = state.romPercent,
+                    angle = state.angle,
+                    targetAngle = state.targetAngle,
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = state.reps.toString().padStart(2, '0'),
+                            style = PhoenixMonoTextStyle.copy(
+                                fontSize = 84.sp,
+                                lineHeight = 84.sp,
+                                fontWeight = FontWeight.Bold,
+                            ),
+                            color = colors.textPrimary,
+                        )
+                        Text(
+                            text = "REPS THIS SET",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textSecondary,
+                        )
+                    }
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        CompactStepper(
+                            label = "WEIGHT",
+                            value = "${formatWeight(state.weightKg)} kg",
+                            onDecrease = { onAdjustWeight(-2.5) },
+                            onIncrease = { onAdjustWeight(2.5) },
+                        )
+                        CompactStepper(
+                            label = "TARGET",
+                            value = "${state.targetReps} reps",
+                            onDecrease = { onAdjustTargetReps(-1) },
+                            onIncrease = { onAdjustTargetReps(1) },
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PhoenixIgnitionButton(
+                        text = "Log set",
+                        onClick = onLogSet,
+                        enabled = state.reps > 0 && !state.isResting,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    OutlinedButton(
+                        onClick = onEndSession,
+                        modifier = Modifier.height(56.dp),
+                    ) {
+                        Text(
+                            text = "Finish",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colors.textPrimary,
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                TeammateTicker()
+
+                MusicChip(
+                    music = state.music,
+                    onToggle = onToggleMusic,
+                    onNext = onNextTrack,
+                    onOpenSettings = onOpenMusicSettings,
+                )
+            }
+        }
+
+        if (!expanded) {
+            CompactCoachHud(state = state, onLogSet = onLogSet)
+        }
+    }
+}
+
+/** Collapsed HUD: reps, load, target and the primary set action stay visible. */
+@Composable
+private fun CompactCoachHud(
+    state: CoachUiState,
+    onLogSet: () -> Unit,
+) {
+    val colors = LocalPhoenixColors.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     text = state.reps.toString().padStart(2, '0'),
                     style = PhoenixMonoTextStyle.copy(
-                        fontSize = 84.sp,
-                        lineHeight = 84.sp,
+                        fontSize = 40.sp,
+                        lineHeight = 40.sp,
                         fontWeight = FontWeight.Bold,
                     ),
                     color = colors.textPrimary,
                 )
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "REPS THIS SET",
+                    text = "REPS",
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.textSecondary,
+                    modifier = Modifier.padding(bottom = 5.dp),
                 )
             }
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                CompactStepper(
-                    label = "WEIGHT",
-                    value = "${formatWeight(state.weightKg)} kg",
-                    onDecrease = { onAdjustWeight(-2.5) },
-                    onIncrease = { onAdjustWeight(2.5) },
-                )
-                CompactStepper(
-                    label = "TARGET",
-                    value = "${state.targetReps} reps",
-                    onDecrease = { onAdjustTargetReps(-1) },
-                    onIncrease = { onAdjustTargetReps(1) },
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            PhoenixIgnitionButton(
-                text = "Log set",
-                onClick = onLogSet,
-                enabled = state.reps > 0 && !state.isResting,
-                modifier = Modifier.weight(1f),
+            Text(
+                text = "${formatWeight(state.weightKg)} kg x ${state.targetReps} target",
+                style = PhoenixMonoTextStyle.copy(fontSize = 14.sp, lineHeight = 16.sp),
+                color = colors.textSecondary,
             )
-            Spacer(modifier = Modifier.width(10.dp))
-            OutlinedButton(
-                onClick = onEndSession,
-                modifier = Modifier.height(56.dp),
-            ) {
-                Text(
-                    text = "Finish",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colors.textPrimary,
-                )
-            }
         }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        TeammateTicker()
-
-        MusicChip(
-            music = state.music,
-            onToggle = onToggleMusic,
-            onNext = onNextTrack,
-            onOpenSettings = onOpenMusicSettings,
-        )
+        Spacer(modifier = Modifier.width(12.dp))
+        OutlinedButton(
+            onClick = onLogSet,
+            enabled = state.reps > 0 && !state.isResting,
+        ) {
+            Text(
+                text = "Log set",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.textPrimary,
+            )
+        }
     }
 }
 
@@ -1042,7 +1229,6 @@ private fun RestStepper(
 private fun RecapOverlay(
     recap: SessionRecap,
     onShare: () -> Unit,
-    onDone: () -> Unit,
     onFinish: () -> Unit,
 ) {
     val colors = LocalPhoenixColors.current
@@ -1122,19 +1308,6 @@ private fun RecapOverlay(
             onClick = onShare,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(modifier = Modifier.height(10.dp))
-        OutlinedButton(
-            onClick = onDone,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-        ) {
-            Text(
-                text = "Back to coach",
-                style = MaterialTheme.typography.labelLarge,
-                color = colors.textPrimary,
-            )
-        }
         Spacer(modifier = Modifier.height(10.dp))
         OutlinedButton(
             onClick = onFinish,

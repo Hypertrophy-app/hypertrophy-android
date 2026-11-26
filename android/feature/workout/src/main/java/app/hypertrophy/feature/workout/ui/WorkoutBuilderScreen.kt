@@ -3,8 +3,8 @@ package app.hypertrophy.feature.workout.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +27,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,13 +39,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.hypertrophy.core.data.catalog.ExerciseCatalog
 import app.hypertrophy.core.data.local.ExerciseEntity
+import app.hypertrophy.core.data.local.ScheduledWorkoutEntity
+import app.hypertrophy.core.data.local.WorkoutTemplateEntity
+import app.hypertrophy.core.data.plan.WorkoutPlanCodec
 import app.hypertrophy.core.designsystem.component.PhoenixIgnitionButton
 import app.hypertrophy.core.designsystem.theme.LocalPhoenixColors
 import app.hypertrophy.core.designsystem.theme.PhoenixMonoTextStyle
@@ -54,19 +58,33 @@ import java.time.LocalDate
 
 @Composable
 fun WorkoutBuilderRoute(
+    onStartWorkout: (String) -> Unit,
     viewModel: WorkoutBuilderViewModel = hiltViewModel(),
 ) {
     val exercises by viewModel.exercises.collectAsStateWithLifecycle()
     val builder by viewModel.builder.collectAsStateWithLifecycle()
+    val templates by viewModel.templates.collectAsStateWithLifecycle()
     val schedule by viewModel.schedule.collectAsStateWithLifecycle()
     val banner by viewModel.banner.collectAsStateWithLifecycle()
     val selected by viewModel.selectedExercise.collectAsStateWithLifecycle()
     val modelFile by viewModel.modelFile.collectAsStateWithLifecycle()
+    val draftTitle by viewModel.draftTitle.collectAsStateWithLifecycle()
+    val editingTemplateId by viewModel.editingTemplateId.collectAsStateWithLifecycle()
+    val startWorkoutId by viewModel.startWorkoutId.collectAsStateWithLifecycle()
+
+    LaunchedEffect(startWorkoutId) {
+        val workoutId = startWorkoutId ?: return@LaunchedEffect
+        viewModel.consumeStartWorkout()
+        onStartWorkout(workoutId)
+    }
 
     WorkoutBuilderScreen(
         exercises = exercises,
         builder = builder,
+        templates = templates,
         schedule = schedule,
+        draftTitle = draftTitle,
+        isEditingTemplate = editingTemplateId != null,
         overdueCount = banner?.overdueIds?.size ?: 0,
         onShiftWeek = viewModel::applyShiftWeekPlusOneDay,
         onMergeToday = viewModel::applyMergeKeyCompoundToday,
@@ -80,8 +98,14 @@ fun WorkoutBuilderRoute(
         onRepsChange = viewModel::updateReps,
         onWeightChange = viewModel::updateWeight,
         onSubstitute = viewModel::substituteExercise,
+        onTitleChange = viewModel::setDraftTitle,
+        onNewDraft = viewModel::newDraft,
         onSaveTemplate = viewModel::saveTemplate,
-        onAssignDay = viewModel::assignDay,
+        onStartNow = viewModel::startBuilderToday,
+        onLoadTemplate = viewModel::loadTemplate,
+        onStartTemplate = viewModel::startTemplateToday,
+        onDeleteTemplate = viewModel::deleteTemplate,
+        onScheduleDay = viewModel::scheduleDay,
     )
 
     selected?.let { exercise ->
@@ -97,7 +121,10 @@ fun WorkoutBuilderRoute(
 fun WorkoutBuilderScreen(
     exercises: List<ExerciseEntity>,
     builder: List<BuilderExercise>,
-    schedule: List<app.hypertrophy.core.data.local.ScheduledWorkoutEntity>,
+    templates: List<WorkoutTemplateEntity>,
+    schedule: List<ScheduledWorkoutEntity>,
+    draftTitle: String,
+    isEditingTemplate: Boolean,
     overdueCount: Int,
     onShiftWeek: () -> Unit,
     onMergeToday: () -> Unit,
@@ -111,129 +138,131 @@ fun WorkoutBuilderScreen(
     onRepsChange: (String, Int) -> Unit,
     onWeightChange: (String, Double) -> Unit,
     onSubstitute: (ExerciseEntity) -> Unit,
-    onSaveTemplate: (String) -> Unit,
-    onAssignDay: (Long, Boolean) -> Unit,
+    onTitleChange: (String) -> Unit,
+    onNewDraft: () -> Unit,
+    onSaveTemplate: () -> Unit,
+    onStartNow: () -> Unit,
+    onLoadTemplate: (String) -> Unit,
+    onStartTemplate: (String) -> Unit,
+    onDeleteTemplate: (String) -> Unit,
+    onScheduleDay: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalPhoenixColors.current
     var search by remember { mutableStateOf("") }
     var activeMuscle by remember { mutableStateOf<String?>(null) }
     var activeEquipment by remember { mutableStateOf<String?>(null) }
-    var templateTitle by remember { mutableStateOf("") }
 
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(colors.canvas)
             .navigationBarsPadding()
             .imePadding()
             .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = 28.dp),
     ) {
         if (overdueCount > 0) {
-            RescheduleBanner(overdueCount, onShiftWeek, onMergeToday)
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        WeeklyStrip(schedule = schedule, onAssignDay = onAssignDay)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = search,
-            onValueChange = {
-                search = it
-                onQueryChange(it)
-            },
-            label = { Text("Search exercises") },
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
-                AssistChip(
-                    onClick = { activeMuscle = null; onMuscleFilter(null) },
-                    label = { Text("All muscles") },
-                )
-            }
-            items(ExerciseCatalog.muscleGroups) { muscle ->
-                AssistChip(
-                    onClick = {
-                        activeMuscle = if (activeMuscle == muscle) null else muscle
-                        onMuscleFilter(activeMuscle)
-                    },
-                    label = { Text(muscle.replace('_', ' ')) },
+                RescheduleBanner(
+                    overdueCount = overdueCount,
+                    onShiftWeek = onShiftWeek,
+                    onMergeToday = onMergeToday,
                 )
             }
         }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+        item {
+            WeeklyStrip(schedule = schedule, onScheduleDay = onScheduleDay)
+        }
+
+        if (templates.isNotEmpty()) {
             item {
-                AssistChip(
-                    onClick = { activeEquipment = null; onEquipmentFilter(null) },
-                    label = { Text("Any equipment") },
-                )
-            }
-            items(ExerciseCatalog.equipmentTypes) { equipment ->
-                AssistChip(
-                    onClick = {
-                        activeEquipment = if (activeEquipment == equipment) null else equipment
-                        onEquipmentFilter(activeEquipment)
-                    },
-                    label = { Text(equipment) },
+                TemplatesSection(
+                    templates = templates,
+                    onLoad = onLoadTemplate,
+                    onStart = onStartTemplate,
+                    onDelete = onDeleteTemplate,
                 )
             }
         }
 
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(exercises, key = { it.id }) { exercise ->
-                ExerciseRow(
-                    exercise = exercise,
-                    onClick = { onExerciseClick(exercise) },
-                    onAdd = { onAddExercise(exercise) },
-                )
-            }
-        }
-
-        if (builder.isNotEmpty()) {
-            Text(
-                text = "BUILDER",
-                style = MaterialTheme.typography.labelLarge,
-                color = colors.emberOrange,
+        item {
+            BuilderSection(
+                builder = builder,
+                draftTitle = draftTitle,
+                isEditingTemplate = isEditingTemplate,
+                onTitleChange = onTitleChange,
+                onNewDraft = onNewDraft,
+                onSaveTemplate = onSaveTemplate,
+                onStartNow = onStartNow,
+                onRemoveExercise = onRemoveExercise,
+                onSetsChange = onSetsChange,
+                onRepsChange = onRepsChange,
+                onWeightChange = onWeightChange,
+                onSubstitute = onSubstitute,
             )
+        }
+
+        item {
+            OutlinedTextField(
+                value = search,
+                onValueChange = {
+                    search = it
+                    onQueryChange(it)
+                },
+                label = { Text("Search exercises") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(builder, key = { it.exercise.id }) { item ->
-                    BuilderCard(
-                        item = item,
-                        onRemove = { onRemoveExercise(item.exercise.id) },
-                        onSets = { onSetsChange(item.exercise.id, it) },
-                        onReps = { onRepsChange(item.exercise.id, it) },
-                        onWeight = { onWeightChange(item.exercise.id, it) },
-                        onSubstitute = { onSubstitute(item.exercise) },
+                item {
+                    AssistChip(
+                        onClick = { activeMuscle = null; onMuscleFilter(null) },
+                        label = { Text("All muscles") },
+                    )
+                }
+                items(ExerciseCatalog.muscleGroups) { muscle ->
+                    AssistChip(
+                        onClick = {
+                            activeMuscle = if (activeMuscle == muscle) null else muscle
+                            onMuscleFilter(activeMuscle)
+                        },
+                        label = { Text(muscle.replace('_', ' ')) },
                     )
                 }
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value = templateTitle,
-                    onValueChange = { templateTitle = it },
-                    label = { Text("Template name") },
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                PhoenixIgnitionButton(
-                    text = "Save",
-                    onClick = {
-                        onSaveTemplate(templateTitle)
-                        templateTitle = ""
-                    },
-                )
+        }
+
+        item {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    AssistChip(
+                        onClick = { activeEquipment = null; onEquipmentFilter(null) },
+                        label = { Text("Any equipment") },
+                    )
+                }
+                items(ExerciseCatalog.equipmentTypes) { equipment ->
+                    AssistChip(
+                        onClick = {
+                            activeEquipment = if (activeEquipment == equipment) null else equipment
+                            onEquipmentFilter(activeEquipment)
+                        },
+                        label = { Text(equipment) },
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        items(exercises, key = { it.id }) { exercise ->
+            ExerciseRow(
+                exercise = exercise,
+                onClick = { onExerciseClick(exercise) },
+                onAdd = { onAddExercise(exercise) },
+            )
         }
     }
 }
@@ -270,61 +299,230 @@ private fun RescheduleBanner(
 
 @Composable
 private fun WeeklyStrip(
-    schedule: List<app.hypertrophy.core.data.local.ScheduledWorkoutEntity>,
-    onAssignDay: (Long, Boolean) -> Unit,
+    schedule: List<ScheduledWorkoutEntity>,
+    onScheduleDay: (Long) -> Unit,
 ) {
     val colors = LocalPhoenixColors.current
-    val today = remember { LocalDate.now().toEpochDay() }
-    val days = remember(schedule) {
-        if (schedule.isNotEmpty()) {
-            schedule.sortedBy { it.scheduledDay }.take(7)
-        } else {
-            (0L..6L).map { offset ->
-                app.hypertrophy.core.data.local.ScheduledWorkoutEntity(
-                    id = "preview-$offset",
-                    userId = "",
-                    templateId = null,
-                    title = "Assign",
-                    scheduledDay = today + offset,
-                    isRestDay = offset == 2L || offset == 5L,
-                    createdAt = 0L,
-                )
+    val today = remember { LocalDate.now() }
+    val monday = remember(today) { today.minusDays((today.dayOfWeek.value - 1).toLong()) }
+    val days = remember(monday) { (0L..6L).map { monday.plusDays(it) } }
+    val byDay = remember(schedule) { schedule.groupBy { it.scheduledDay } }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "THIS WEEK",
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.emberOrange,
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(days, key = { it.toEpochDay() }) { day ->
+                val entries = byDay[day.toEpochDay()].orEmpty()
+                val primary = entries.firstOrNull()
+                val isToday = day == today
+                val isRest = primary?.isRestDay == true
+                val isDone = primary?.isCompleted == true
+
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = when {
+                            isDone -> colors.solarGold.copy(alpha = 0.18f)
+                            isRest -> colors.elevated
+                            else -> colors.surface
+                        },
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .width(92.dp)
+                        .height(108.dp)
+                        .clickable { onScheduleDay(day.toEpochDay()) },
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            text = if (isToday) "TODAY" else day.dayOfWeek.name.take(3),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (isToday) colors.solarGold else colors.textSecondary,
+                        )
+                        Text(
+                            text = day.dayOfMonth.toString(),
+                            style = PhoenixMonoTextStyle.copy(fontSize = 18.sp, lineHeight = 20.sp),
+                            color = colors.textPrimary,
+                        )
+                        Text(
+                            text = when {
+                                primary == null -> "Assign"
+                                isRest -> "Rest"
+                                else -> primary.title
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isRest) colors.solarGold else colors.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = when {
+                                entries.size > 1 -> "+${entries.size - 1} more"
+                                isDone -> "Completed"
+                                primary == null -> "Tap to plan"
+                                else -> "Tap to replace"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isDone) colors.solarGold else colors.textSecondary,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            text = "Tap a day to schedule the draft. With no exercises, a tap marks rest.",
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.textSecondary,
+        )
+    }
+}
+
+@Composable
+private fun TemplatesSection(
+    templates: List<WorkoutTemplateEntity>,
+    onLoad: (String) -> Unit,
+    onStart: (String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    val colors = LocalPhoenixColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "TEMPLATES",
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.emberOrange,
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(templates, key = { it.id }) { template ->
+                val plan = remember(template.exercisesJson) {
+                    WorkoutPlanCodec.decode(template.exercisesJson)
+                }
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = colors.surface),
+                    modifier = Modifier.width(250.dp),
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = template.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = colors.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = "${plan.size} exercises | ${plan.sumOf { it.sets }} sets",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textSecondary,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = { onLoad(template.id) }) {
+                                Text("LOAD", color = colors.solarGold)
+                            }
+                            TextButton(onClick = { onStart(template.id) }) {
+                                Text("START", color = colors.emberOrange)
+                            }
+                            TextButton(onClick = { onDelete(template.id) }) {
+                                Text("DELETE", color = colors.formErrorCrimson)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
+}
 
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(days, key = { it.id }) { day ->
-            val label = LocalDate.ofEpochDay(day.scheduledDay).dayOfWeek.name.take(3)
-            val isRest = day.isRestDay
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isRest) colors.elevated else colors.surface,
-                ),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .size(76.dp)
-                    .clickable { onAssignDay(day.scheduledDay, false) },
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colors.textSecondary,
-                    )
-                    Text(
-                        text = if (isRest) "REST" else "LIFT",
-                        style = PhoenixMonoTextStyle.copy(fontSize = 14.sp, lineHeight = 18.sp),
-                        color = if (isRest) colors.solarGold else colors.textPrimary,
-                    )
+@Composable
+private fun BuilderSection(
+    builder: List<BuilderExercise>,
+    draftTitle: String,
+    isEditingTemplate: Boolean,
+    onTitleChange: (String) -> Unit,
+    onNewDraft: () -> Unit,
+    onSaveTemplate: () -> Unit,
+    onStartNow: () -> Unit,
+    onRemoveExercise: (String) -> Unit,
+    onSetsChange: (String, Int) -> Unit,
+    onRepsChange: (String, Int) -> Unit,
+    onWeightChange: (String, Double) -> Unit,
+    onSubstitute: (ExerciseEntity) -> Unit,
+) {
+    val colors = LocalPhoenixColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = if (isEditingTemplate) "EDITING TEMPLATE" else "DRAFT SESSION",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.emberOrange,
+                modifier = Modifier.weight(1f),
+            )
+            if (builder.isNotEmpty() || draftTitle.isNotBlank()) {
+                TextButton(onClick = onNewDraft) {
+                    Text("NEW", color = colors.textSecondary)
                 }
             }
+        }
+
+        if (builder.isEmpty()) {
+            Text(
+                text = "Add exercises below to build a session. Save it as a template, start it now, or tap a day above.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textSecondary,
+            )
+            return@Column
+        }
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(builder, key = { it.exercise.id }) { item ->
+                BuilderCard(
+                    item = item,
+                    onRemove = { onRemoveExercise(item.exercise.id) },
+                    onSets = { onSetsChange(item.exercise.id, it) },
+                    onReps = { onRepsChange(item.exercise.id, it) },
+                    onWeight = { onWeightChange(item.exercise.id, it) },
+                    onSubstitute = { onSubstitute(item.exercise) },
+                )
+            }
+        }
+
+        OutlinedTextField(
+            value = draftTitle,
+            onValueChange = onTitleChange,
+            label = { Text("Session title") },
+            placeholder = { Text("Custom Session") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedButton(
+                onClick = onSaveTemplate,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
+            ) {
+                Text(
+                    text = if (isEditingTemplate) "Update template" else "Save template",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.textPrimary,
+                )
+            }
+            PhoenixIgnitionButton(
+                text = "Start now",
+                onClick = onStartNow,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
@@ -385,7 +583,7 @@ private fun BuilderCard(
 
     Card(
         colors = CardDefaults.cardColors(containerColor = colors.elevated),
-        modifier = Modifier.width(200.dp),
+        modifier = Modifier.width(210.dp),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(item.exercise.name, color = colors.textPrimary, style = MaterialTheme.typography.titleMedium)

@@ -49,7 +49,8 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun TodayRoute(
-    onOpenWorkout: () -> Unit,
+    onOpenQuickWorkout: () -> Unit,
+    onStartWorkout: (String) -> Unit,
     viewModel: TodayViewModel = hiltViewModel(),
 ) {
     val layout by viewModel.layout.collectAsStateWithLifecycle()
@@ -62,7 +63,8 @@ fun TodayRoute(
         onToggle = viewModel::setVisible,
         onToggleCollapsed = viewModel::toggleCollapsed,
         onExpandAll = viewModel::expandAll,
-        onOpenWorkout = onOpenWorkout,
+        onOpenQuickWorkout = onOpenQuickWorkout,
+        onStartWorkout = onStartWorkout,
     )
 }
 
@@ -75,7 +77,8 @@ fun TodayScreen(
     onToggle: (TodayCard, Boolean) -> Unit,
     onToggleCollapsed: (TodayCard) -> Unit,
     onExpandAll: () -> Unit,
-    onOpenWorkout: () -> Unit,
+    onOpenQuickWorkout: () -> Unit,
+    onStartWorkout: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalPhoenixColors.current
@@ -134,7 +137,11 @@ fun TodayScreen(
                 onToggleCollapsed = { onToggleCollapsed(card) },
             ) {
                 when (card) {
-                    TodayCard.TODAYS_PLAN -> PlanCard(state = state, onOpenWorkout = onOpenWorkout)
+                    TodayCard.TODAYS_PLAN -> PlanCard(
+                        state = state,
+                        onOpenQuickWorkout = onOpenQuickWorkout,
+                        onStartWorkout = onStartWorkout,
+                    )
                     TodayCard.SQUAD_LIVE_TICKER -> SquadTickerCard(progress = state.squadProgress)
                     TodayCard.ACTIVE_CHALLENGE -> ChallengeCard(challenge = state.activeChallenge)
                     TodayCard.MUSCLE_RECOVERY_SUMMARY -> RecoveryCard(state = state)
@@ -170,8 +177,8 @@ fun TodayScreen(
             }
         }
 
-        TextButton(onClick = onOpenWorkout) {
-            Text("Open live workout", color = colors.solarGold)
+        TextButton(onClick = onOpenQuickWorkout) {
+            Text("Start quick workout", color = colors.solarGold)
         }
     }
 }
@@ -238,7 +245,11 @@ private fun cardTitle(card: TodayCard): String = when (card) {
 }
 
 @Composable
-private fun PlanCard(state: TodayUiState, onOpenWorkout: () -> Unit) {
+private fun PlanCard(
+    state: TodayUiState,
+    onOpenQuickWorkout: () -> Unit,
+    onStartWorkout: (String) -> Unit,
+) {
     val colors = LocalPhoenixColors.current
     if (state.scheduled.isEmpty()) {
         Text(
@@ -246,12 +257,12 @@ private fun PlanCard(state: TodayUiState, onOpenWorkout: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textPrimary,
         )
-        TextButton(onClick = onOpenWorkout) {
-            Text("Start live workout", color = colors.solarGold)
+        TextButton(onClick = onOpenQuickWorkout) {
+            Text("Start quick workout", color = colors.solarGold)
         }
     } else {
         state.scheduled.forEach { scheduled ->
-            ScheduleRow(scheduled = scheduled)
+            ScheduleRow(scheduled = scheduled, onStartWorkout = onStartWorkout)
         }
     }
 
@@ -273,7 +284,10 @@ private fun PlanCard(state: TodayUiState, onOpenWorkout: () -> Unit) {
 }
 
 @Composable
-private fun ScheduleRow(scheduled: ScheduledWorkoutEntity) {
+private fun ScheduleRow(
+    scheduled: ScheduledWorkoutEntity,
+    onStartWorkout: (String) -> Unit,
+) {
     val colors = LocalPhoenixColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -296,11 +310,17 @@ private fun ScheduleRow(scheduled: ScheduledWorkoutEntity) {
                 color = if (scheduled.isCompleted) colors.solarGold else colors.textSecondary,
             )
         }
-        Text(
-            text = if (scheduled.isCompleted) "DONE" else "PLANNED",
-            style = PhoenixMonoTextStyle.copy(fontSize = 11.sp, lineHeight = 13.sp),
-            color = if (scheduled.isCompleted) colors.solarGold else colors.textSecondary,
-        )
+        if (scheduled.isRestDay || scheduled.isCompleted) {
+            Text(
+                text = if (scheduled.isCompleted) "DONE" else "REST",
+                style = PhoenixMonoTextStyle.copy(fontSize = 11.sp, lineHeight = 13.sp),
+                color = if (scheduled.isCompleted) colors.solarGold else colors.textSecondary,
+            )
+        } else {
+            TextButton(onClick = { onStartWorkout(scheduled.id) }) {
+                Text("Start", color = colors.solarGold)
+            }
+        }
     }
 }
 

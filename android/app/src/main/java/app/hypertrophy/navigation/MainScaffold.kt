@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import app.hypertrophy.core.designsystem.component.PhoenixIgnitionButton
 import app.hypertrophy.core.designsystem.theme.LocalPhoenixColors
+import app.hypertrophy.feature.coach.CoachViewModel
 
 data class TabItem(val route: String, val label: String, val icon: ImageVector)
 
@@ -39,7 +40,7 @@ fun MainScaffold(
     currentRoute: String,
     onTabSelected: (String) -> Unit,
     onQuickWorkout: () -> Unit,
-    onStartScheduled: () -> Unit,
+    onStartScheduled: (String) -> Unit,
     onHostJoinSquad: () -> Unit,
     showBottomBar: Boolean = true,
     content: @Composable () -> Unit,
@@ -134,7 +135,12 @@ fun MainScaffold(
                 ) {
                     PhoenixIgnitionButton(
                         text = "Start Scheduled",
-                        onClick = { fabExpanded = false; onStartScheduled() },
+                        onClick = {
+                            fabExpanded = false
+                            // The sentinel resolves the first incomplete
+                            // non-rest session for the current day.
+                            onStartScheduled(CoachViewModel.TODAY_SENTINEL)
+                        },
                     )
                     PhoenixIgnitionButton(
                         text = "Quick Workout",

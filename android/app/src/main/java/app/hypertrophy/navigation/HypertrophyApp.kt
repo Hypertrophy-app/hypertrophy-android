@@ -1,5 +1,6 @@
 package app.hypertrophy.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,7 +22,7 @@ import app.hypertrophy.feature.profile.ProfileRoute
 import app.hypertrophy.feature.squad.SquadRoute
 import app.hypertrophy.feature.today.DashboardCollapseSignal
 import app.hypertrophy.feature.today.TodayRoute
-import app.hypertrophy.feature.workout.WorkoutRoute
+import app.hypertrophy.feature.workout.ui.WorkoutBuilderRoute
 import app.hypertrophy.home.HomeScreen
 
 @Composable
@@ -50,6 +51,19 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
         }
     }
 
+    // Every entry into the coach passes an explicit workout id. A blank id is
+    // a quick workout; the today sentinel resolves the first unfinished
+    // scheduled session; any other id opens that planned session.
+    val openCoach: (String) -> Unit = { workoutId ->
+        if (workoutId.isBlank()) {
+            navController.navigate("coach") { launchSingleTop = true }
+        } else {
+            navController.navigate("coach?workoutId=${Uri.encode(workoutId)}") {
+                launchSingleTop = true
+            }
+        }
+    }
+
     FireTransitionContainer(transitionKey = backStackEntry?.destination?.route ?: "today") {
         MainScaffold(
             currentRoute = currentTab,
@@ -67,23 +81,38 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
                 // Starting a quick workout leaves the dashboard collapsed, so
                 // Today comes back compact instead of four full cards.
                 DashboardCollapseSignal.requestCollapse()
-                navController.navigate("coach") { launchSingleTop = true }
+                openCoach("")
             },
-            onStartScheduled = { navController.navigate("coach") { launchSingleTop = true } },
+            onStartScheduled = openCoach,
             onHostJoinSquad = { navController.navigate("squad") { launchSingleTop = true } },
         ) {
         NavHost(navController = navController, startDestination = "today") {
             composable("today") {
-                TodayRoute(onOpenWorkout = { navController.navigate("workout") })
-            }
-            composable("workout") {
-                WorkoutRoute(onBack = { navController.popBackStack() })
+                TodayRoute(
+                    onOpenQuickWorkout = {
+                        DashboardCollapseSignal.requestCollapse()
+                        openCoach("")
+                    },
+                    onStartWorkout = openCoach,
+                )
             }
             composable("builder") {
-                app.hypertrophy.feature.workout.ui.WorkoutBuilderRoute()
+                WorkoutBuilderRoute(onStartWorkout = openCoach)
             }
-            composable("coach") {
-                CoachRoute(onBack = { navController.popBackStack() })
+            composable(
+                route = "coach?workoutId={workoutId}",
+                arguments = listOf(
+                    navArgument("workoutId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { entry ->
+                CoachRoute(
+                    workoutId = entry.arguments?.getString("workoutId"),
+                    onBack = { navController.popBackStack() },
+                )
             }
             composable("squad") {
                 SquadRoute()
@@ -95,7 +124,7 @@ fun HypertrophyApp(initialInviteCode: String? = null) {
                 )
             }
             composable("home") {
-                HomeScreen(onStartWorkout = { navController.navigate("coach") })
+                HomeScreen(onStartWorkout = { openCoach("") })
             }
             composable(
                 route = "join/{code}",

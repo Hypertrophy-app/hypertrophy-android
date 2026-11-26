@@ -8,6 +8,9 @@ import app.hypertrophy.core.data.local.ExerciseEntity
 import app.hypertrophy.core.data.local.ScheduledWorkoutEntity
 import app.hypertrophy.core.data.local.TrainingDao
 import app.hypertrophy.core.data.local.WorkoutTemplateEntity
+import app.hypertrophy.core.data.network.AuthSessionStore
+import app.hypertrophy.core.data.plan.PlannedExercise
+import app.hypertrophy.core.data.plan.WorkoutPlanCodec
 import app.hypertrophy.feature.workout.engine.PlannedWorkout
 import app.hypertrophy.feature.workout.engine.RescheduleResult
 import app.hypertrophy.feature.workout.engine.SmartRescheduleEngine
@@ -21,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -30,7 +34,14 @@ data class BuilderExercise(
     val sets: Int = 3,
     val reps: Int = 8,
     val targetWeightKg: Double = 60.0,
-)
+) {
+    fun toPlanned(): PlannedExercise = PlannedExercise(
+        exerciseId = exercise.id,
+        sets = sets,
+        reps = reps,
+        weightKg = targetWeightKg,
+    )
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -38,6 +49,8 @@ class WorkoutBuilderViewModel @Inject constructor(
     private val trainingDao: TrainingDao,
     private val modelCache: ExerciseModelCache,
 ) : ViewModel() {
+    private val userId: String = AuthSessionStore.requireUserId
+
     private val query = MutableStateFlow("")
     private val muscle = MutableStateFlow<String?>(null)
     private val equipment = MutableStateFlow<String?>(null)
@@ -49,15 +62,25 @@ class WorkoutBuilderViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ExerciseCatalog.exercises)
 
     val templates: StateFlow<List<WorkoutTemplateEntity>> = trainingDao
-        .observeTemplates(LOCAL_USER_ID)
+        .observeTemplates(userId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val schedule: StateFlow<List<ScheduledWorkoutEntity>> = trainingDao
-        .observeSchedule(LOCAL_USER_ID)
+        .observeSchedule(userId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _builder = MutableStateFlow<List<BuilderExercise>>(emptyList())
     val builder: StateFlow<List<BuilderExercise>> = _builder
+
+    private val _draftTitle = MutableStateFlow("")
+    val draftTitle: StateFlow<String> = _draftTitle
+
+    private val _editingTemplateId = MutableStateFlow<String?>(null)
+    val editingTemplateId: StateFlow<String?> = _editingTemplateId
+
+    /** One-shot navigation request emitted after a workout is scheduled today. */
+    private val _startWorkoutId = MutableStateFlow<String?>(null)
+    val startWorkoutId: StateFlow<String?> = _startWorkoutId
 
     private val _banner = MutableStateFlow<RescheduleResult?>(null)
     val banner: StateFlow<RescheduleResult?> = _banner
@@ -111,6 +134,16 @@ class WorkoutBuilderViewModel @Inject constructor(
         }
     }
 
+    fun setDraftTitle(value: String) {
+        _draftTitle.value = value
+    }
+
+    fun newDraft() {
+        _builder.value = emptyList()
+        _draftTitle.value = ""
+        _editingTemplateId.value = null
+    }
+
     /**
      * Swaps the exercise for the best same-muscle, same-kinematic alternative
      * available with current equipment. Completed set history stays attached to
@@ -132,7 +165,8 @@ class WorkoutBuilderViewModel @Inject constructor(
         }
     }
 
-    fun selectExercise(exercise: ExerciseEntity) {        _selectedExercise.value = exercise
+    fun selectExercise(exercise: ExerciseEntity) {
+        _selectedExercise.value = exercise
         viewModelScope.launch {
             _modelFile.value = modelCache.cachedModel(exercise.id)
                 ?: modelCache.resolveModel(exercise.id)
@@ -144,47 +178,137 @@ class WorkoutBuilderViewModel @Inject constructor(
         _modelFile.value = null
     }
 
-    fun saveTemplate(title: String) {
-        val items = _builder.value
-        if (title.isBlank() || items.isEmpty()) return
-        val now = System.currentTimeMillis()
-        val exercisesJson = items.joinToString(prefix = "[", postfix = "]") { item ->
-            """{"exerciseId":"${item.exercise.id}","sets":${item.sets},"reps":${item.reps},"weightKg":${item.targetWeightKg}}"""
-        }
+    fun loadTemplate(templateId: String) {
         viewModelScope.launch {
-            trainingDao.upsertTemplate(
-                WorkoutTemplateEntity(
-                    id = UUID.randomUUID().toString(),
-                    userId = LOCAL_USER_ID,
-                    title = title,
-                    exercisesJson = exercisesJson,
-                    isPublic = false,
-                    createdAt = now,
-                    updatedAt = now,
-                ),
-            )
-            _builder.value = emptyList()
+            val template = trainingDao.findTemplate(templateId) ?: return@launch
+            val plan = WorkoutPlanCodec.decode(template.exercisesJson)
+            if (plan.isEmpty()) return@launch
+
+            val catalog = ExerciseCatalog.exercises.associateBy { it.id }
+            val fromRoom = trainingDao.findExercisesByIds(plan.map { it.exerciseId })
+                .associateBy { it.id }
+            _builder.value = plan.mapNotNull { planned ->
+                val exercise = fromRoom[planned.exerciseId]
+                    ?: catalog[planned.exerciseId]
+                    ?: return@mapNotNull null
+                BuilderExercise(
+                    exercise = exercise,
+                    sets = planned.sets,
+                    reps = planned.reps,
+                    targetWeightKg = planned.weightKg,
+                )
+            }
+            _draftTitle.value = template.title
+            _editingTemplateId.value = template.id
         }
     }
 
-    fun assignDay(dayEpoch: Long, isRestDay: Boolean = false) {
-        val title = if (isRestDay) "Rest Day" else "Custom Session"
+    fun deleteTemplate(templateId: String) {
         viewModelScope.launch {
-            trainingDao.upsertScheduledOne(
-                ScheduledWorkoutEntity(
-                    id = UUID.randomUUID().toString(),
-                    userId = LOCAL_USER_ID,
-                    templateId = null,
+            trainingDao.deleteTemplate(templateId, userId)
+            if (_editingTemplateId.value == templateId) {
+                _editingTemplateId.value = null
+            }
+        }
+    }
+
+    fun saveTemplate() {
+        val items = _builder.value
+        if (items.isEmpty()) return
+        val title = titleOrDefault()
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val existing = _editingTemplateId.value?.let { trainingDao.findTemplate(it) }
+            val id = existing?.id ?: UUID.randomUUID().toString()
+            trainingDao.upsertTemplate(
+                WorkoutTemplateEntity(
+                    id = id,
+                    userId = userId,
                     title = title,
-                    scheduledDay = dayEpoch,
-                    isRestDay = isRestDay,
-                    isCompleted = false,
-                    isKeyCompound = !isRestDay,
-                    exercisesJson = null,
-                    createdAt = System.currentTimeMillis(),
+                    exercisesJson = WorkoutPlanCodec.encode(items.map { it.toPlanned() }),
+                    isPublic = false,
+                    createdAt = existing?.createdAt ?: now,
+                    updatedAt = now,
+                ),
+            )
+            _editingTemplateId.value = id
+        }
+    }
+
+    /**
+     * Writes the current draft onto a calendar day. With an empty draft a day
+     * becomes a rest day (or toggles an existing rest day off). Completed days
+     * are never overwritten from the builder.
+     */
+    fun scheduleDay(dayEpoch: Long) {
+        viewModelScope.launch {
+            val existing = trainingDao.scheduledForDay(userId, dayEpoch).firstOrNull()
+            if (existing?.isCompleted == true) return@launch
+
+            val items = _builder.value
+            if (items.isEmpty()) {
+                when {
+                    existing == null -> trainingDao.upsertScheduledOne(
+                        restDay(dayEpoch),
+                    )
+                    existing.isRestDay -> trainingDao.deleteScheduled(existing.id)
+                    else -> Unit
+                }
+                return@launch
+            }
+
+            trainingDao.upsertScheduledOne(
+                scheduledEntity(
+                    id = existing?.id ?: UUID.randomUUID().toString(),
+                    title = titleOrDefault(),
+                    dayEpoch = dayEpoch,
+                    exercises = items.map { it.toPlanned() },
+                    templateId = _editingTemplateId.value,
+                    createdAt = existing?.createdAt ?: System.currentTimeMillis(),
                 ),
             )
         }
+    }
+
+    /** Schedules the draft for today and asks the route to open the coach. */
+    fun startBuilderToday() {
+        val items = _builder.value
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            val entity = scheduledEntity(
+                id = UUID.randomUUID().toString(),
+                title = titleOrDefault(),
+                dayEpoch = LocalDate.now().toEpochDay(),
+                exercises = items.map { it.toPlanned() },
+                templateId = _editingTemplateId.value,
+                createdAt = System.currentTimeMillis(),
+            )
+            trainingDao.upsertScheduledOne(entity)
+            _startWorkoutId.value = entity.id
+        }
+    }
+
+    /** Schedules a saved template for today and asks the route to open it. */
+    fun startTemplateToday(templateId: String) {
+        viewModelScope.launch {
+            val template = trainingDao.findTemplate(templateId) ?: return@launch
+            val exercises = WorkoutPlanCodec.decode(template.exercisesJson)
+            if (exercises.isEmpty()) return@launch
+            val entity = scheduledEntity(
+                id = UUID.randomUUID().toString(),
+                title = template.title,
+                dayEpoch = LocalDate.now().toEpochDay(),
+                exercises = exercises,
+                templateId = template.id,
+                createdAt = System.currentTimeMillis(),
+            )
+            trainingDao.upsertScheduledOne(entity)
+            _startWorkoutId.value = entity.id
+        }
+    }
+
+    fun consumeStartWorkout() {
+        _startWorkoutId.value = null
     }
 
     fun applyShiftWeekPlusOneDay() {
@@ -192,7 +316,7 @@ class WorkoutBuilderViewModel @Inject constructor(
         val today = LocalDate.now().toEpochDay()
         val result = SmartRescheduleEngine.shiftWeekPlusOneDay(current.plans, today)
         viewModelScope.launch {
-            trainingDao.upsertScheduledAll(result.plans.map { it.toEntity() })
+            persistReschedule(result, deleteOverdue = false)
             _banner.value = null
             detectOverdue()
         }
@@ -203,8 +327,7 @@ class WorkoutBuilderViewModel @Inject constructor(
         val today = LocalDate.now().toEpochDay()
         val result = SmartRescheduleEngine.mergeKeyCompoundLiftsToday(current.plans, today)
         viewModelScope.launch {
-            trainingDao.upsertScheduledAll(result.plans.map { it.toEntity() })
-            result.overdueIds.forEach { trainingDao.deleteScheduled(it) }
+            persistReschedule(result, deleteOverdue = true)
             _banner.value = null
             detectOverdue()
         }
@@ -218,7 +341,7 @@ class WorkoutBuilderViewModel @Inject constructor(
 
     private suspend fun detectOverdue() {
         val today = LocalDate.now().toEpochDay()
-        val plans = schedule.value.map { it.toPlan() }
+        val plans = trainingDao.observeSchedule(userId).first().map { it.toPlan() }
         val late = SmartRescheduleEngine.overdue(plans, today)
         _banner.value = if (late.isEmpty()) {
             null
@@ -232,6 +355,104 @@ class WorkoutBuilderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Applies a reschedule result without losing plan payloads. The engine owns
+     * dates and completion flags; the existing entity owns ids, titles, and
+     * exercise JSON. Merged key-compound lifts are rebuilt from the payloads
+     * that were already on disk.
+     */
+    private suspend fun persistReschedule(result: RescheduleResult, deleteOverdue: Boolean) {
+        val existing = trainingDao.observeSchedule(userId).first().associateBy { it.id }
+        val exerciseLookup = existing.values
+            .flatMap { WorkoutPlanCodec.decode(it.exercisesJson) }
+            .associateBy { it.exerciseId }
+
+        val updated = result.plans.mapNotNull { plan ->
+            val base = existing[plan.id] ?: return@mapNotNull null
+            val exercisesJson = if (plan.exerciseIds.isEmpty()) {
+                base.exercisesJson
+            } else {
+                mergePlanJson(base.exercisesJson, plan.exerciseIds, exerciseLookup)
+            }
+            base.copy(
+                title = plan.title,
+                scheduledDay = plan.dayEpoch,
+                isCompleted = plan.isCompleted,
+                isRestDay = plan.isRestDay,
+                isKeyCompound = plan.isKeyCompound,
+                exercisesJson = exercisesJson,
+            )
+        }
+        trainingDao.upsertScheduledAll(updated)
+        if (deleteOverdue) {
+            result.overdueIds.forEach { trainingDao.deleteScheduled(it) }
+        }
+    }
+
+    private fun mergePlanJson(
+        baseJson: String?,
+        orderedIds: List<String>,
+        lookup: Map<String, PlannedExercise>,
+    ): String {
+        val merged = LinkedHashMap<String, PlannedExercise>()
+        WorkoutPlanCodec.decode(baseJson).forEach { merged[it.exerciseId] = it }
+        orderedIds.forEach { id ->
+            if (id !in merged) lookup[id]?.let { merged[id] = it }
+        }
+        val ordered = orderedIds.mapNotNull { merged[it] } +
+            merged.values.filter { it.exerciseId !in orderedIds }
+        return WorkoutPlanCodec.encode(ordered)
+    }
+
+    private fun titleOrDefault(): String =
+        _draftTitle.value.trim().ifBlank { DEFAULT_TITLE }
+
+    private fun restDay(dayEpoch: Long): ScheduledWorkoutEntity = ScheduledWorkoutEntity(
+        id = UUID.randomUUID().toString(),
+        userId = userId,
+        templateId = null,
+        title = "Rest Day",
+        scheduledDay = dayEpoch,
+        isRestDay = true,
+        isCompleted = false,
+        isKeyCompound = false,
+        exercisesJson = null,
+        createdAt = System.currentTimeMillis(),
+    )
+
+    private fun scheduledEntity(
+        id: String,
+        title: String,
+        dayEpoch: Long,
+        exercises: List<PlannedExercise>,
+        templateId: String?,
+        createdAt: Long,
+    ): ScheduledWorkoutEntity = ScheduledWorkoutEntity(
+        id = id,
+        userId = userId,
+        templateId = templateId,
+        title = title,
+        scheduledDay = dayEpoch,
+        isRestDay = false,
+        isCompleted = false,
+        isKeyCompound = exercises.any { isCompound(it.exerciseId) },
+        exercisesJson = WorkoutPlanCodec.encode(exercises),
+        createdAt = createdAt,
+    )
+
+    private fun isCompound(exerciseId: String): Boolean = when (exerciseId) {
+        "ex_back_squat",
+        "ex_front_squat",
+        "ex_deadlift",
+        "ex_rdl",
+        "ex_bench_press",
+        "ex_incline_bench",
+        "ex_overhead_press",
+        "ex_barbell_row",
+        -> true
+        else -> false
+    }
+
     private fun ScheduledWorkoutEntity.toPlan() = PlannedWorkout(
         id = id,
         dayEpoch = scheduledDay,
@@ -239,23 +460,10 @@ class WorkoutBuilderViewModel @Inject constructor(
         isCompleted = isCompleted,
         isRestDay = isRestDay,
         isKeyCompound = isKeyCompound,
-        exerciseIds = emptyList(),
+        exerciseIds = WorkoutPlanCodec.decode(exercisesJson).map { it.exerciseId },
     )
 
-    private fun PlannedWorkout.toEntity() = ScheduledWorkoutEntity(
-        id = id,
-        userId = LOCAL_USER_ID,
-        templateId = null,
-        title = title,
-        scheduledDay = dayEpoch,
-        isRestDay = isRestDay,
-        isCompleted = isCompleted,
-        isKeyCompound = isKeyCompound,
-        exercisesJson = null,
-        createdAt = System.currentTimeMillis(),
-    )
-
-    companion object {
-        const val LOCAL_USER_ID = "local-user"
+    private companion object {
+        const val DEFAULT_TITLE = "Custom Session"
     }
 }

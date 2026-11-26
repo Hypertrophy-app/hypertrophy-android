@@ -2,7 +2,13 @@ package app.hypertrophy.feature.coach
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.hypertrophy.core.data.catalog.ExerciseCatalog
+import app.hypertrophy.core.data.local.ScheduledWorkoutEntity
+import app.hypertrophy.core.data.local.TrainingDao
 import app.hypertrophy.core.data.local.WorkoutDao
+import app.hypertrophy.core.data.network.AuthSessionStore
+import app.hypertrophy.core.data.plan.PlannedExercise
+import app.hypertrophy.core.data.plan.WorkoutPlanCodec
 import app.hypertrophy.core.data.sync.SessionOutboxBuilder
 import app.hypertrophy.core.data.sync.SessionSetInput
 import app.hypertrophy.core.kinematics.AutoSetRestDetector
@@ -24,11 +30,11 @@ import app.hypertrophy.feature.coach.music.MusicController
 import app.hypertrophy.feature.coach.music.MusicState
 import app.hypertrophy.feature.coach.recap.PersonalRecordMath
 import app.hypertrophy.feature.coach.recap.SessionHistoryStore
-import app.hypertrophy.feature.coach.recap.SessionMetrics
 import app.hypertrophy.feature.coach.recap.SessionRecap
 import app.hypertrophy.feature.coach.recap.SessionRecapGenerator
 import app.hypertrophy.feature.coach.voice.VoiceCoach
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.ceil
@@ -42,14 +48,34 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/** One row in the coach exercise queue. */
+data class CoachQueueItem(
+    val exerciseId: String,
+    val name: String,
+    val targetSets: Int,
+    val completedSets: Int,
+    val isCurrent: Boolean,
+)
+
 data class CoachUiState(
+    val workoutTitle: String = "Quick Workout",
     val exerciseName: String = SquatAnalyzer.displayName,
     val kind: ExerciseKind = ExerciseKind.SQUAT,
     val phase: RepPhase = RepPhase.TOP_READY,
     val reps: Int = 0,
+    /** Completed sets for the current exercise. */
     val sets: Int = 0,
+    val targetSets: Int = 3,
+    /** Completed sets across every exercise in the session. */
+    val totalSets: Int = 0,
     val targetReps: Int = 8,
     val weightKg: Double = 60.0,
+    val restSeconds: Int = 90,
+    val exerciseIndex: Int = 0,
+    val exerciseCount: Int = 1,
+    val queue: List<CoachQueueItem> = emptyList(),
+    val planLoaded: Boolean = true,
+    val planNotice: String? = null,
     val romPercent: Float = 0f,
     val angle: Float? = null,
     val targetAngle: Float = SquatAnalyzer.bottomAngle,
@@ -66,12 +92,14 @@ data class CoachUiState(
     val recap: SessionRecap? = null,
 )
 
-private data class RecordedSet(
-    val reps: Int,
+private data class ActiveExercise(
+    val exerciseId: String,
+    val name: String,
+    val kind: ExerciseKind,
+    val targetSets: Int,
+    val targetReps: Int,
     val weightKg: Double,
-    val romPercent: Float,
-    val tempoLabel: String,
-    val formScore: Int,
+    val restSeconds: Int,
 )
 
 @HiltViewModel
@@ -80,7 +108,9 @@ class CoachViewModel @Inject constructor(
     private val musicController: MusicController,
     private val historyStore: SessionHistoryStore,
     private val workoutDao: WorkoutDao,
+    private val trainingDao: TrainingDao,
 ) : ViewModel() {
+    private val userId: String = AuthSessionStore.requireUserId
     private val lock = Any()
     private val _state = MutableStateFlow(CoachUiState())
     val state: StateFlow<CoachUiState> = _state.asStateFlow()
@@ -98,10 +128,18 @@ class CoachViewModel @Inject constructor(
     private var cueCount = 0
 
     private val repTempos = mutableListOf<TempoSnapshot>()
+    private val sessionTempos = mutableListOf<TempoSnapshot>()
     private var setRomSum = 0f
     private var setRomCount = 0
-    private val completedSets = mutableListOf<RecordedSet>()
-    private var currentExerciseId = "ex_back_squat"
+
+    private var workoutTitle = "Quick Workout"
+    private var plan: List<ActiveExercise> = listOf(quickExercise(ExerciseKind.SQUAT))
+    private var currentIndex = 0
+    private var scheduledWorkoutId: String? = null
+    private var planLoaded = true
+    private var pendingAdvance = false
+    private var startHandled = false
+    private val setsByExercise = linkedMapOf<String, MutableList<CompletedSet>>()
 
     private var restJob: Job? = null
 
@@ -116,6 +154,7 @@ class CoachViewModel @Inject constructor(
 
     init {
         voiceCoach.initialize()
+        applyActiveExercise(0)
         // MediaSessionManager calls are binder round trips; keep them off the
         // main thread while the HUD renders at camera frame rate.
         viewModelScope.launch(Dispatchers.IO) {
@@ -128,13 +167,30 @@ class CoachViewModel @Inject constructor(
     }
 
     /**
+     * Called once by the route. A blank id keeps the quick workout, `today`
+     * resolves the first incomplete scheduled session, and anything else is a
+     * scheduled workout id.
+     */
+    fun start(workoutId: String?) {
+        val request = workoutId?.takeIf { it.isNotBlank() }
+        synchronized(lock) {
+            if (startHandled) return
+            startHandled = true
+            if (request == null) return
+            planLoaded = false
+            _state.update { it.copy(planLoaded = false, planNotice = null) }
+        }
+        viewModelScope.launch { loadWorkout(request!!) }
+    }
+
+    /**
      * Frame entry point. MediaPipe calls this from its result thread, so the
      * whole pipeline is serialized on [lock].
      */
     fun onPoseFrame(frame: PoseFrame) {
         synchronized(lock) {
             val current = _state.value
-            if (current.recap != null) return
+            if (!current.planLoaded || current.recap != null) return
 
             if (sessionStartedAtMs == 0L) {
                 sessionStartedAtMs = System.currentTimeMillis()
@@ -155,7 +211,7 @@ class CoachViewModel @Inject constructor(
                     classification.confidence >= 0.6f
                 ) {
                     if (classification.kind != analyzer.kind) {
-                        applyKind(classification.kind, detected = true)
+                        applyDetectedKind(classification.kind)
                     } else {
                         _state.update { it.copy(detectedKind = classification.kind) }
                     }
@@ -179,6 +235,7 @@ class CoachViewModel @Inject constructor(
 
             update.completedRep?.let { rep ->
                 repTempos += rep.tempo
+                sessionTempos += rep.tempo
                 setRomSum += rep.romPercent
                 setRomCount++
                 val milestone = when {
@@ -208,8 +265,26 @@ class CoachViewModel @Inject constructor(
         }
     }
 
+    fun selectExercise(index: Int) {
+        synchronized(lock) {
+            if (!planLoaded || index !in plan.indices || index == currentIndex) return
+            cancelRest()
+            pendingAdvance = false
+            applyActiveExercise(index, announce = true)
+        }
+    }
+
     fun selectKind(kind: ExerciseKind) {
-        synchronized(lock) { applyKind(kind) }
+        synchronized(lock) {
+            if (!planLoaded) return
+            if (scheduledWorkoutId != null) {
+                // Planned exercise keeps its id and name; the chips only
+                // override the joint triangle used for rep counting.
+                applyAnalyzerKind(kind)
+            } else {
+                switchQuickKind(kind)
+            }
+        }
     }
 
     fun toggleAutoClassify() {
@@ -222,14 +297,24 @@ class CoachViewModel @Inject constructor(
     }
 
     fun adjustWeight(deltaKg: Double) {
-        _state.update {
-            it.copy(weightKg = (it.weightKg + deltaKg).coerceIn(0.0, 500.0))
+        synchronized(lock) {
+            val active = plan.getOrNull(currentIndex) ?: return
+            val updated = (_state.value.weightKg + deltaKg).coerceIn(0.0, 500.0)
+            plan = plan.toMutableList().also {
+                it[currentIndex] = active.copy(weightKg = updated)
+            }
+            _state.update { it.copy(weightKg = updated) }
         }
     }
 
     fun adjustTargetReps(delta: Int) {
-        _state.update {
-            it.copy(targetReps = (it.targetReps + delta).coerceIn(1, 30))
+        synchronized(lock) {
+            val active = plan.getOrNull(currentIndex) ?: return
+            val updated = (_state.value.targetReps + delta).coerceIn(1, 30)
+            plan = plan.toMutableList().also {
+                it[currentIndex] = active.copy(targetReps = updated)
+            }
+            _state.update { it.copy(targetReps = updated) }
         }
     }
 
@@ -251,7 +336,7 @@ class CoachViewModel @Inject constructor(
 
     fun logSetManually() {
         synchronized(lock) {
-            if (_state.value.isResting || _state.value.recap != null) return
+            if (!planLoaded || _state.value.isResting || _state.value.recap != null) return
             val reps = stateMachine.completedReps
             if (reps < 1) return
             completeSet(reps)
@@ -260,30 +345,36 @@ class CoachViewModel @Inject constructor(
 
     fun endSession() {
         viewModelScope.launch {
-            val sets = synchronized(lock) {
-                val all = completedSets.toMutableList()
+            if (!_state.value.planLoaded) return@launch
+            val snapshot = synchronized(lock) {
+                val all = setsByExercise.values.flatten().toMutableList()
                 if (stateMachine.completedReps > 0) {
-                    all += RecordedSet(
-                        reps = stateMachine.completedReps,
-                        weightKg = _state.value.weightKg,
-                        romPercent = if (setRomCount > 0) {
-                            setRomSum / setRomCount
-                        } else {
-                            stateMachine.currentRomPercent
-                        },
-                        tempoLabel = repTempos.lastOrNull()?.label() ?: "3-1-1",
-                        formScore = _state.value.formScore,
-                    )
+                    val active = plan.getOrNull(currentIndex)
+                    if (active != null) {
+                        all += CompletedSet(
+                            exerciseId = active.exerciseId,
+                            reps = stateMachine.completedReps,
+                            weightKg = _state.value.weightKg,
+                            romPercent = if (setRomCount > 0) {
+                                setRomSum / setRomCount
+                            } else {
+                                stateMachine.currentRomPercent
+                            },
+                            tempoLabel = repTempos.lastOrNull()?.label() ?: "3-1-1",
+                            formScore = _state.value.formScore,
+                        )
+                    }
                 }
-                all.toList()
+                all.toList() to sessionTempos.toList()
             }
-            restJob?.cancel()
-            restJob = null
+            val sets = snapshot.first
+            val tempos = snapshot.second
+            cancelRest()
             if (sets.isEmpty()) {
                 // A quick workout with no logged sets must still be stoppable.
                 // Show a recap and skip persistence: the outbox requires at
                 // least one set and there are no metrics worth saving.
-                val recap = SessionRecapGenerator.empty(_state.value.exerciseName)
+                val recap = SessionRecapGenerator.empty(workoutTitle)
                 _state.update {
                     it.copy(
                         recap = recap,
@@ -296,63 +387,54 @@ class CoachViewModel @Inject constructor(
                 return@launch
             }
 
-            val reps = sets.sumOf { it.reps }
-            val avgRom = sets.map { it.romPercent }.average().toFloat()
-            val topWeight = sets.maxOf { it.weightKg }
-            val bestSet = sets.maxByOrNull {
-                PersonalRecordMath.estimateOneRepMax(it.weightKg, it.reps)
-            }!!
-            val estimated1Rm = PersonalRecordMath.estimateOneRepMax(
-                bestSet.weightKg,
-                bestSet.reps,
-            )
-            val metrics = SessionMetrics(
-                exerciseName = _state.value.exerciseName,
-                sets = sets.size,
-                reps = reps,
-                avgRomPercent = avgRom,
-                tempoConsistencyPercent = SessionRecapGenerator.tempoConsistency(
-                    synchronized(lock) { repTempos.toList() },
-                ),
-                formScore = _state.value.formScore,
-                topWeightKg = topWeight,
-                estimated1RmKg = estimated1Rm,
-            )
-
-            val previousPr = workoutDao.findPersonalRecord(LOCAL_USER_ID, currentExerciseId)
-            val newPr = PersonalRecordMath.isNewRecord(previousPr, topWeight, estimated1Rm)
-
             val now = System.currentTimeMillis()
-            if (previousPr == null || newPr) {
-                workoutDao.upsertPersonalRecord(
-                    PersonalRecordMath.merge(
-                        previous = previousPr,
-                        userId = LOCAL_USER_ID,
-                        exerciseId = currentExerciseId,
-                        topWeightKg = topWeight,
-                        topReps = sets.maxOf { it.reps },
-                        estimated1Rm = estimated1Rm,
-                        achievedAtMillis = now,
-                        newId = UUID.randomUUID().toString(),
-                    ),
+            var newPr = false
+            SessionSummaryBuilder.byExercise(sets).forEach { summary ->
+                val previous = workoutDao.findPersonalRecord(userId, summary.exerciseId)
+                val isRecord = PersonalRecordMath.isNewRecord(
+                    previous = previous,
+                    topWeightKg = summary.topWeightKg,
+                    estimated1Rm = summary.estimated1RmKg,
                 )
+                if (previous == null || isRecord) {
+                    workoutDao.upsertPersonalRecord(
+                        PersonalRecordMath.merge(
+                            previous = previous,
+                            userId = userId,
+                            exerciseId = summary.exerciseId,
+                            topWeightKg = summary.topWeightKg,
+                            topReps = summary.topReps,
+                            estimated1Rm = summary.estimated1RmKg,
+                            achievedAtMillis = now,
+                            newId = UUID.randomUUID().toString(),
+                        ),
+                    )
+                }
+                if (isRecord) newPr = true
             }
 
-            val previousSession = historyStore.previous(currentExerciseId)
-            historyStore.save(currentExerciseId, metrics)
+            val metrics = SessionSummaryBuilder.metrics(
+                title = workoutTitle,
+                sets = sets,
+                tempos = tempos,
+                formScore = _state.value.formScore,
+            )
+            val historyKey = historyKey(workoutTitle)
+            val previousSession = historyStore.previous(userId, historyKey)
+            historyStore.save(userId, historyKey, metrics)
             val recap = SessionRecapGenerator.generate(metrics, previousSession, newPr)
 
             // Offline-first: Room is the source of truth and the outbox entry
             // lets SyncWorker flush one batched payload per session to D1.
             val built = SessionOutboxBuilder.build(
-                userId = LOCAL_USER_ID,
+                userId = userId,
                 sessionId = UUID.randomUUID().toString(),
-                title = _state.value.exerciseName,
+                title = workoutTitle,
                 startedAt = sessionStartedAtMs.takeIf { it > 0L } ?: now,
                 endedAt = now,
                 sets = sets.map {
                     SessionSetInput(
-                        exerciseId = currentExerciseId,
+                        exerciseId = it.exerciseId,
                         reps = it.reps,
                         weightKg = it.weightKg,
                         romPercent = it.romPercent,
@@ -366,46 +448,19 @@ class CoachViewModel @Inject constructor(
             )
             workoutDao.upsertSession(built.session)
             workoutDao.enqueueOutbox(built.outboxEntry)
+            scheduledWorkoutId?.let { trainingDao.markScheduledCompleted(it, userId) }
 
-            restJob?.cancel()
-            restJob = null
             _state.update {
                 it.copy(
                     recap = recap,
                     isResting = false,
                     restSecondsRemaining = 0,
                     restProgress = 1f,
+                    totalSets = sets.size,
+                    queue = queueItems(),
                 )
             }
             voiceCoach.announce("Session complete. Nice work.")
-        }
-    }
-
-    fun clearRecap() {
-        synchronized(lock) {
-            completedSets.clear()
-            repTempos.clear()
-            sessionStartedAtMs = 0L
-            formScore = 100
-            cueCount = 0
-            formCue = null
-            stateMachine = ExerciseStateMachine(analyzer)
-            faultDetector = FormFaultDetector()
-            restDetector = AutoSetRestDetector()
-            cameraAssistant.reset()
-            autoClassifier.reset()
-            _state.update {
-                it.copy(
-                    recap = null,
-                    reps = 0,
-                    sets = 0,
-                    romPercent = 0f,
-                    phase = RepPhase.TOP_READY,
-                    formCue = null,
-                    formScore = 100,
-                    angle = null,
-                )
-            }
         }
     }
 
@@ -418,8 +473,134 @@ class CoachViewModel @Inject constructor(
         voiceCoach.shutdown()
     }
 
-    private fun applyKind(kind: ExerciseKind, detected: Boolean = false) {
-        val info = exerciseInfo(kind)
+    private suspend fun loadWorkout(request: String) {
+        val scheduled = if (request == TODAY_SENTINEL) {
+            trainingDao.scheduledForDay(userId, LocalDate.now().toEpochDay())
+                .firstOrNull { !it.isCompleted && !it.isRestDay }
+        } else {
+            trainingDao.findScheduled(request)
+        }
+
+        if (scheduled == null || scheduled.userId != userId) {
+            synchronized(lock) {
+                planLoaded = true
+                _state.update {
+                    it.copy(
+                        planLoaded = true,
+                        planNotice = "No scheduled session found. Quick workout loaded.",
+                    )
+                }
+            }
+            return
+        }
+        loadScheduled(scheduled)
+    }
+
+    private suspend fun loadScheduled(scheduled: ScheduledWorkoutEntity) {
+        val resolved = resolvePlan(WorkoutPlanCodec.decode(scheduled.exercisesJson))
+        if (resolved.isEmpty()) {
+            synchronized(lock) {
+                planLoaded = true
+                _state.update {
+                    it.copy(
+                        planLoaded = true,
+                        planNotice = "This session has no exercises. Quick workout loaded.",
+                    )
+                }
+            }
+            return
+        }
+
+        synchronized(lock) {
+            workoutTitle = scheduled.title
+            scheduledWorkoutId = scheduled.id
+            plan = resolved
+            currentIndex = 0
+            planLoaded = true
+            pendingAdvance = false
+            setsByExercise.clear()
+            sessionTempos.clear()
+            applyActiveExercise(0)
+            _state.update {
+                it.copy(
+                    workoutTitle = workoutTitle,
+                    planLoaded = true,
+                    planNotice = null,
+                )
+            }
+        }
+        voiceCoach.announce("${scheduled.title}. ${resolved.size} exercises.")
+    }
+
+    private suspend fun resolvePlan(planned: List<PlannedExercise>): List<ActiveExercise> {
+        if (planned.isEmpty()) return emptyList()
+        val catalog = ExerciseCatalog.exercises.associateBy { it.id }
+        val fromRoom = trainingDao.findExercisesByIds(planned.map { it.exerciseId })
+            .associateBy { it.id }
+        return planned.mapNotNull { item ->
+            val exercise = fromRoom[item.exerciseId]
+                ?: catalog[item.exerciseId]
+                ?: return@mapNotNull null
+            ActiveExercise(
+                exerciseId = exercise.id,
+                name = exercise.name,
+                kind = ExerciseKindMapping.forProfile(
+                    exercise.kinematicProfileType,
+                    exercise.primaryMuscle,
+                ),
+                targetSets = item.sets,
+                targetReps = item.reps,
+                weightKg = item.weightKg,
+                restSeconds = item.restSeconds,
+            )
+        }
+    }
+
+    private fun applyActiveExercise(index: Int, announce: Boolean = false) {
+        val active = plan.getOrNull(index) ?: return
+        currentIndex = index
+        analyzer = analyzerFor(active.kind)
+        stateMachine = ExerciseStateMachine(analyzer)
+        faultDetector = FormFaultDetector()
+        restDetector = AutoSetRestDetector()
+        cameraAssistant.reset()
+        autoClassifier.reset()
+        repTempos.clear()
+        setRomSum = 0f
+        setRomCount = 0
+        formCue = null
+
+        val completed = setsByExercise[active.exerciseId]?.size ?: 0
+        _state.update {
+            it.copy(
+                workoutTitle = workoutTitle,
+                exerciseName = active.name,
+                kind = active.kind,
+                reps = 0,
+                sets = completed,
+                targetSets = active.targetSets,
+                totalSets = setsByExercise.values.sumOf { sets -> sets.size },
+                targetReps = active.targetReps,
+                weightKg = active.weightKg,
+                restSeconds = active.restSeconds,
+                exerciseIndex = index,
+                exerciseCount = plan.size,
+                queue = queueItems(),
+                planLoaded = planLoaded,
+                phase = RepPhase.TOP_READY,
+                romPercent = 0f,
+                angle = null,
+                targetAngle = analyzer.bottomAngle,
+                formCue = null,
+                detectedKind = null,
+            )
+        }
+        if (announce) {
+            voiceCoach.announce("${active.name}. ${active.targetSets} sets of ${active.targetReps}.")
+        }
+    }
+
+    private fun applyAnalyzerKind(kind: ExerciseKind, detected: Boolean = false) {
         analyzer = analyzerFor(kind)
         stateMachine = ExerciseStateMachine(analyzer)
         faultDetector = FormFaultDetector()
@@ -430,11 +611,8 @@ class CoachViewModel @Inject constructor(
         setRomSum = 0f
         setRomCount = 0
         formCue = null
-        currentExerciseId = info.second
-
         _state.update {
             it.copy(
-                exerciseName = info.first,
                 kind = kind,
                 reps = 0,
                 phase = RepPhase.TOP_READY,
@@ -447,37 +625,73 @@ class CoachViewModel @Inject constructor(
         }
     }
 
+    private fun applyDetectedKind(kind: ExerciseKind) {
+        if (scheduledWorkoutId != null) {
+            applyAnalyzerKind(kind, detected = true)
+        } else {
+            switchQuickKind(kind, detected = true)
+        }
+    }
+
+    private fun switchQuickKind(kind: ExerciseKind, detected: Boolean = false) {
+        plan = listOf(quickExercise(kind))
+        currentIndex = 0
+        applyActiveExercise(0)
+        if (detected) {
+            _state.update { it.copy(detectedKind = kind) }
+        }
+    }
+
     private fun maybeAutoSet(frame: PoseFrame) {
         val current = _state.value
-        if (current.isResting || current.recap != null) return
+        if (!current.planLoaded || current.isResting || current.recap != null) return
         val event = restDetector.update(frame, stateMachine.completedReps)
         if (event != null) completeSet(event.reps)
     }
 
     private fun completeSet(reps: Int) {
-        if (reps < 1) return
+        if (reps < 1 || !planLoaded) return
+        val active = plan.getOrNull(currentIndex) ?: return
         val rom = if (setRomCount > 0) setRomSum / setRomCount else 0f
-        val set = RecordedSet(
+        val set = CompletedSet(
+            exerciseId = active.exerciseId,
             reps = reps,
             weightKg = _state.value.weightKg,
             romPercent = rom,
             tempoLabel = repTempos.lastOrNull()?.label() ?: "3-1-1",
             formScore = _state.value.formScore,
         )
-        completedSets += set
+        val exerciseSets = setsByExercise.getOrPut(active.exerciseId) { mutableListOf() }
+        exerciseSets += set
+        val completedForExercise = exerciseSets.size
+        val totalCompleted = setsByExercise.values.sumOf { it.size }
+        val reachedTarget = completedForExercise >= active.targetSets
+        val hasNext = currentIndex < plan.lastIndex
+        pendingAdvance = reachedTarget && hasNext
 
-        voiceCoach.announce("Set logged. $reps reps. Rest ninety seconds.")
         _state.update {
             it.copy(
-                sets = completedSets.size,
+                sets = completedForExercise,
+                totalSets = totalCompleted,
                 reps = 0,
                 phase = RepPhase.TOP_READY,
                 romPercent = 0f,
                 formCue = null,
+                queue = queueItems(),
             )
         }
         resetTracking()
-        startRest(REST_SECONDS)
+
+        val nextName = plan.getOrNull(currentIndex + 1)?.name
+        when {
+            pendingAdvance && nextName != null ->
+                voiceCoach.announce("Set logged. $reps reps. $nextName is next after rest.")
+            reachedTarget && !hasNext ->
+                voiceCoach.announce("Set logged. $reps reps. Final set complete. End the session when ready.")
+            else ->
+                voiceCoach.announce("Set logged. $reps reps. Rest ${active.restSeconds} seconds.")
+        }
+        startRest(active.restSeconds)
     }
 
     private fun resetTracking() {
@@ -491,7 +705,8 @@ class CoachViewModel @Inject constructor(
     }
 
     private fun startRest(seconds: Int) {
-        restTotalMs = seconds * 1_000L
+        val duration = seconds.coerceIn(MIN_REST_SECONDS, MAX_REST_SECONDS)
+        restTotalMs = duration * 1_000L
         restEndsAtMs = System.currentTimeMillis() + restTotalMs
         restJob?.cancel()
         restJob = viewModelScope.launch {
@@ -516,6 +731,8 @@ class CoachViewModel @Inject constructor(
 
     private fun endRest() {
         val finished = _state.value.restProgress >= 1f
+        val advanceTo = if (pendingAdvance) currentIndex + 1 else null
+        pendingAdvance = false
         _state.update {
             it.copy(
                 isResting = false,
@@ -526,7 +743,21 @@ class CoachViewModel @Inject constructor(
                 romPercent = 0f,
             )
         }
-        if (finished) voiceCoach.announce("Rest complete. Next set.")
+        if (advanceTo != null && advanceTo in plan.indices) {
+            applyActiveExercise(advanceTo, announce = true)
+        } else if (finished) {
+            voiceCoach.announce("Rest complete. Next set.")
+        }
+    }
+
+    private fun cancelRest() {
+        restJob?.cancel()
+        restJob = null
+        restEndsAtMs = 0L
+        restTotalMs = 0L
+        _state.update {
+            it.copy(isResting = false, restSecondsRemaining = 0, restProgress = 0f)
+        }
     }
 
     private fun scheduleCueClear() {
@@ -536,6 +767,32 @@ class CoachViewModel @Inject constructor(
             formCue = null
             _state.update { it.copy(formCue = null) }
         }
+    }
+
+    private fun queueItems(): List<CoachQueueItem> = plan.mapIndexed { index, active ->
+        CoachQueueItem(
+            exerciseId = active.exerciseId,
+            name = active.name,
+            targetSets = active.targetSets,
+            completedSets = setsByExercise[active.exerciseId]?.size ?: 0,
+            isCurrent = index == currentIndex,
+        )
+    }
+
+    private fun historyKey(title: String): String =
+        "workout:" + title.trim().lowercase().replace(Regex("\\s+"), "-")
+
+    private fun quickExercise(kind: ExerciseKind): ActiveExercise {
+        val info = exerciseInfo(kind)
+        return ActiveExercise(
+            exerciseId = info.second,
+            name = info.first,
+            kind = kind,
+            targetSets = 3,
+            targetReps = 8,
+            weightKg = 60.0,
+            restSeconds = REST_SECONDS,
+        )
     }
 
     private fun exerciseInfo(kind: ExerciseKind): Pair<String, String> = when (kind) {
@@ -548,7 +805,9 @@ class CoachViewModel @Inject constructor(
     }
 
     companion object {
-        const val LOCAL_USER_ID = "local-user"
         const val REST_SECONDS = 90
+        const val TODAY_SENTINEL = "today"
+        private const val MIN_REST_SECONDS = 15
+        private const val MAX_REST_SECONDS = 600
     }
 }
