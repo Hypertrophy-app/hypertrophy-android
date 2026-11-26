@@ -19,7 +19,7 @@ class SessionOutboxBuilderTest {
     fun sessionAggregatesVolumeAndTimeline() {
         val sessionId = UUID.randomUUID().toString()
         val built = SessionOutboxBuilder.build(
-            userId = "local-user",
+            userId = "user-1",
             sessionId = sessionId,
             title = "Back Squat",
             startedAt = now - 3_600_000L,
@@ -42,7 +42,7 @@ class SessionOutboxBuilderTest {
     fun outboxEntryTargetsTheSessionEntity() {
         val sessionId = UUID.randomUUID().toString()
         val built = SessionOutboxBuilder.build(
-            userId = "local-user",
+            userId = "user-1",
             sessionId = sessionId,
             title = "Back Squat",
             startedAt = now,
@@ -66,7 +66,7 @@ class SessionOutboxBuilderTest {
     fun payloadMatchesBackendSessionSchema() {
         val sessionId = UUID.randomUUID().toString()
         val built = SessionOutboxBuilder.build(
-            userId = "local-user",
+            userId = "user-1",
             sessionId = sessionId,
             title = "Back Squat",
             startedAt = now,
@@ -99,7 +99,7 @@ class SessionOutboxBuilderTest {
     @Test
     fun localSetsJsonKeepsCoachingFields() {
         val built = SessionOutboxBuilder.build(
-            userId = "local-user",
+            userId = "user-1",
             sessionId = UUID.randomUUID().toString(),
             title = "Back Squat",
             startedAt = now,
@@ -121,7 +121,7 @@ class SessionOutboxBuilderTest {
     @Test
     fun longTitlesAreTruncatedToBackendLimit() {
         val built = SessionOutboxBuilder.build(
-            userId = "local-user",
+            userId = "user-1",
             sessionId = UUID.randomUUID().toString(),
             title = "x".repeat(300),
             startedAt = now,
@@ -139,7 +139,7 @@ class SessionOutboxBuilderTest {
     fun emptySetsAreRejected() {
         assertThrows(IllegalArgumentException::class.java) {
             SessionOutboxBuilder.build(
-                userId = "local-user",
+                userId = "user-1",
                 sessionId = UUID.randomUUID().toString(),
                 title = "Back Squat",
                 startedAt = now,
@@ -156,7 +156,7 @@ class SessionOutboxBuilderTest {
     fun reversedTimelineIsRejected() {
         assertThrows(IllegalArgumentException::class.java) {
             SessionOutboxBuilder.build(
-                userId = "local-user",
+                userId = "user-1",
                 sessionId = UUID.randomUUID().toString(),
                 title = "Back Squat",
                 startedAt = now,
@@ -172,7 +172,7 @@ class SessionOutboxBuilderTest {
     @Test
     fun sameInputsProduceIdenticalPayload() {
         fun payload() = SessionOutboxBuilder.build(
-            userId = "local-user",
+            userId = "user-1",
             sessionId = "fixed-session-id",
             title = "Back Squat",
             startedAt = now,

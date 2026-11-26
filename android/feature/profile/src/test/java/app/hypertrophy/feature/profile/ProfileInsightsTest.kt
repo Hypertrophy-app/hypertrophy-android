@@ -173,7 +173,7 @@ class ProfileInsightsTest {
             PersonalRecordWithExercise(
                 record = PersonalRecordEntity(
                     id = "pr1",
-                    userId = "local-user",
+                    userId = "user-1",
                     exerciseId = "ex_bench_press",
                     maxWeightKg = 105.0,
                     maxReps = 3,
@@ -226,7 +226,7 @@ class ProfileInsightsTest {
         volume: Double = 0.0,
     ): WorkoutSessionEntity = WorkoutSessionEntity(
         id = id,
-        userId = "local-user",
+        userId = "user-1",
         squadId = null,
         title = "Session",
         startedAt = createdAt,

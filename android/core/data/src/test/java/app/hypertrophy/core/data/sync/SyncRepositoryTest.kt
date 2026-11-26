@@ -76,8 +76,13 @@ private class FakeWorkoutDao(initial: List<SyncOutboxEntity> = emptyList()) : Wo
         outbox += entry
     }
 
-    override suspend fun pendingOutbox(limit: Int): List<SyncOutboxEntity> =
-        outbox.filter { it.syncedAt == null }.sortedBy { it.createdAt }.take(limit)
+    override suspend fun pendingOutboxForUser(
+        userId: String,
+        limit: Int,
+    ): List<SyncOutboxEntity> =
+        outbox.filter { it.userId == userId && it.syncedAt == null }
+            .sortedBy { it.createdAt }
+            .take(limit)
 
     override suspend fun markSynced(id: String, syncedAt: Long) {
         val index = outbox.indexOfFirst { it.id == id }
@@ -100,9 +105,10 @@ private fun entry(
     id: String,
     createdAt: Long,
     payloadJson: String = """{"id":"s1","title":"Back Squat","startedAt":1,"endedAt":2,"sets":[]}""",
+    userId: String = "user-1",
 ) = SyncOutboxEntity(
     id = id,
-    userId = "local-user",
+    userId = userId,
     entityType = "workout_session",
     entityId = "s1",
     operation = "create",
@@ -132,10 +138,25 @@ class SyncRepositoryTest {
         val dao = FakeWorkoutDao(listOf(entry("a", 1L), entry("b", 2L)))
         val repo = repository(dao)
 
-        assertEquals(2, repo.syncPending())
+        assertEquals(2, repo.syncPending("user-1"))
         assertTrue(dao.outbox.all { it.syncedAt != null })
         // Idempotent: nothing left to send.
-        assertEquals(0, repo.syncPending())
+        assertEquals(0, repo.syncPending("user-1"))
+    }
+
+    @Test
+    fun flushOnlySendsTheActiveUsersEntries() = runBlocking {
+        val dao = FakeWorkoutDao(
+            listOf(
+                entry("mine", 1L, userId = "user-1"),
+                entry("theirs", 2L, userId = "user-2"),
+            ),
+        )
+        val repo = repository(dao)
+
+        assertEquals(1, repo.syncPending("user-1"))
+        assertNotNull(dao.outbox.first { it.id == "mine" }.syncedAt)
+        assertNull(dao.outbox.first { it.id == "theirs" }.syncedAt)
     }
 
     @Test
@@ -144,8 +165,8 @@ class SyncRepositoryTest {
         var requests = 0
         val repo = repository(dao, onRequest = { requests++ })
 
-        repo.syncPending()
-        repo.syncPending()
+        repo.syncPending("user-1")
+        repo.syncPending("user-1")
         assertEquals(1, requests)
     }
 
@@ -154,13 +175,13 @@ class SyncRepositoryTest {
         val dao = FakeWorkoutDao(listOf(entry("a", 1L)))
         val repo = repository(dao, status = HttpStatusCode.InternalServerError)
 
-        assertEquals(0, repo.syncPending())
+        assertEquals(0, repo.syncPending("user-1"))
         assertNull(dao.outbox.single().syncedAt)
         assertEquals(1, dao.outbox.single().attempts)
 
         // A later run with a healthy endpoint still delivers the same row.
         val recovered = repository(dao)
-        assertEquals(1, recovered.syncPending())
+        assertEquals(1, recovered.syncPending("user-1"))
         assertNotNull(dao.outbox.single().syncedAt)
     }
 
@@ -171,7 +192,7 @@ class SyncRepositoryTest {
         var body: JSONObject? = null
         val repo = repository(dao, onRequest = { request -> body = JSONObject((request.body as io.ktor.http.content.TextContent).text) })
 
-        repo.syncPending()
+        repo.syncPending("user-1")
 
         assertNotNull(body)
         val sent = body!!
@@ -189,7 +210,7 @@ class SyncRepositoryTest {
         var key: String? = null
         val repo = repository(dao, onRequest = { request -> key = request.headers["X-Idempotency-Key"] })
 
-        repo.syncPending()
+        repo.syncPending("user-1")
         assertEquals("first", key)
     }
 
@@ -199,7 +220,7 @@ class SyncRepositoryTest {
         var body: JSONObject? = null
         val repo = repository(dao, onRequest = { request -> body = JSONObject((request.body as io.ktor.http.content.TextContent).text) })
 
-        assertEquals(3, repo.syncPending())
+        assertEquals(3, repo.syncPending("user-1"))
 
         val order = body!!.getJSONArray("entries").let { array ->
             (0 until array.length()).map { array.getJSONObject(it).getString("id") }

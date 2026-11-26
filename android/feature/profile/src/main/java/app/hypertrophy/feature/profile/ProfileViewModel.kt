@@ -10,6 +10,7 @@ import app.hypertrophy.core.data.local.UserBadgeEntity
 import app.hypertrophy.core.data.local.UserDao
 import app.hypertrophy.core.data.local.WorkoutDao
 import app.hypertrophy.core.data.local.WorkoutSessionEntity
+import app.hypertrophy.core.data.network.AuthSessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
@@ -54,6 +55,7 @@ class ProfileViewModel @Inject constructor(
     private val userDao: UserDao,
     val healthConnect: HealthConnectManager,
 ) : ViewModel() {
+    private val userId: String = AuthSessionStore.requireUserId
     private val selectedExerciseId = MutableStateFlow<String?>(null)
     private val healthGranted = MutableStateFlow(false)
     private val healthBusy = MutableStateFlow(false)
@@ -64,9 +66,9 @@ class ProfileViewModel @Inject constructor(
         .map { exercises -> exercises.associateBy(ExerciseEntity::id) }
 
     private val core = combine(
-        userDao.observeUser(USER_ID),
-        workoutDao.observeSessions(USER_ID),
-        workoutDao.observePersonalRecordBoard(USER_ID, limit = 50),
+        userDao.observeUser(userId),
+        workoutDao.observeSessions(userId),
+        workoutDao.observePersonalRecordBoard(userId, limit = 50),
         exerciseMap,
     ) { user, sessions, prs, exercises ->
         ProfileCore(
@@ -80,7 +82,7 @@ class ProfileViewModel @Inject constructor(
 
     val state: StateFlow<ProfileUiState> = combine(
         core,
-        trainingDao.observeBadges(USER_ID),
+        trainingDao.observeBadges(userId),
         selectedExerciseId,
         combine(healthGranted, healthBusy, healthMessage) { granted, busy, message ->
             Triple(granted, busy, message)
@@ -126,7 +128,7 @@ class ProfileViewModel @Inject constructor(
         // Persist newly earned badges once so the wall keeps the unlock date
         // even after a gap in training.
         viewModelScope.launch {
-            combine(core, trainingDao.observeBadges(USER_ID)) { core, persisted -> core to persisted }
+            combine(core, trainingDao.observeBadges(userId)) { core, persisted -> core to persisted }
                 .collect { (core, persisted) ->
                     val totals = ProfileInsights.totals(core.sessions, LocalDate.now().toEpochDay())
                     val unlocked = persisted.associate { it.badgeCode to it.unlockedAt }
@@ -135,7 +137,7 @@ class ProfileViewModel @Inject constructor(
                     for (definition in ProfileInsights.newlyEarned(badges)) {
                         trainingDao.upsertBadge(
                             UserBadgeEntity(
-                                userId = USER_ID,
+                                userId = userId,
                                 badgeCode = definition.code,
                                 unlockedAt = now,
                             ),
@@ -176,7 +178,7 @@ class ProfileViewModel @Inject constructor(
                     healthMessage.value = "Grant Health Connect write permission first"
                     return@launch
                 }
-                val sessions = workoutDao.recentSessions(USER_ID, limit = 500)
+                val sessions = workoutDao.recentSessions(userId, limit = 500)
                 if (sessions.isEmpty()) {
                     healthMessage.value = "No sessions to export yet"
                     return@launch
@@ -193,9 +195,5 @@ class ProfileViewModel @Inject constructor(
                 healthBusy.value = false
             }
         }
-    }
-
-    companion object {
-        const val USER_ID = "local-user"
     }
 }

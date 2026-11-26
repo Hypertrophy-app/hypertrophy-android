@@ -3,6 +3,7 @@ package app.hypertrophy.feature.squad
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.hypertrophy.core.data.local.SquadDao
+import app.hypertrophy.core.data.network.AuthSessionStore
 import app.hypertrophy.core.data.network.TokenProvider
 import app.hypertrophy.core.data.network.createAuthenticatedHttpClient
 import app.hypertrophy.core.data.remote.HypertrophyApi
@@ -64,6 +65,7 @@ class SquadViewModel @Inject constructor(
     private val tokenProvider: TokenProvider,
     private val squadDao: SquadDao,
 ) : ViewModel() {
+    private val userId: String = AuthSessionStore.requireUserId
     private val client = createAuthenticatedHttpClient(tokenProvider) {
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
@@ -78,15 +80,15 @@ class SquadViewModel @Inject constructor(
     private var socket: SquadWebSocketClient? = null
     private var socketJob: Job? = null
 
-    // The socket authenticates with the Clerk JWT, so the client does not know
-    // its own backend user id up front. The first create echo teaches us the
-    // host id and lets the host-only controls appear.
+    // The socket authenticates with the Clerk JWT, so the backend user id is
+    // the same Clerk subject the app already knows. Keeping it here lets host
+    // controls resolve without waiting for the create echo.
     private var awaitingHostCreate = false
-    private var localHostUserId: String? = null
+    private var localHostUserId: String? = userId
 
     init {
         viewModelScope.launch {
-            squadDao.observeSquadsForUser(USER_ID).collect { cached ->
+            squadDao.observeSquadsForUser(userId).collect { cached ->
                 val squads = cached.map { it.squad.toDto(it.role) }
                 _state.value = _state.value.copy(
                     squads = squads,
@@ -112,9 +114,9 @@ class SquadViewModel @Inject constructor(
             val now = System.currentTimeMillis()
             runCatching {
                 squadDao.refreshSquadsForUser(
-                    userId = USER_ID,
+                    userId = userId,
                     squads = response.squads.map { it.toEntity() },
-                    members = response.squads.map { it.toMembership(USER_ID, now) },
+                    members = response.squads.map { it.toMembership(userId, now) },
                 )
             }
             _state.value = _state.value.copy(error = null)
@@ -179,7 +181,7 @@ class SquadViewModel @Inject constructor(
             error = null,
         )
         awaitingHostCreate = false
-        localHostUserId = null
+        localHostUserId = userId
         socketJob?.cancel()
         socket?.disconnect()
         socket = SquadWebSocketClient(HypertrophyApi.BASE_URL.replaceFirst("https://", "wss://"), tokenProvider)
@@ -244,7 +246,7 @@ class SquadViewModel @Inject constructor(
     private suspend fun cacheSquad(squad: SquadDto) {
         val now = System.currentTimeMillis()
         squadDao.upsertSquads(listOf(squad.toEntity()))
-        squadDao.upsertSquadMembers(listOf(squad.toMembership(USER_ID, now)))
+        squadDao.upsertSquadMembers(listOf(squad.toMembership(userId, now)))
     }
 
     private fun applyEvent(event: SquadEvent) {
@@ -358,7 +360,6 @@ class SquadViewModel @Inject constructor(
     }
 
     companion object {
-        const val USER_ID = "local-user"
         const val MIN_REST_SECONDS = 15
         const val MAX_REST_SECONDS = 300
 

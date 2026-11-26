@@ -65,7 +65,7 @@ class HealthConnectExportTest {
         title: String = "Hypertrophy session",
     ): WorkoutSessionEntity = WorkoutSessionEntity(
         id = id,
-        userId = "local-user",
+        userId = "user-1",
         squadId = null,
         title = title,
         startedAt = start,

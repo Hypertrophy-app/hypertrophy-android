@@ -23,8 +23,8 @@ class SyncRepository @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val httpClient: HttpClient,
 ) {
-    suspend fun syncPending(): Int {
-        val pending = workoutDao.pendingOutbox()
+    suspend fun syncPending(userId: String): Int {
+        val pending = workoutDao.pendingOutboxForUser(userId)
         if (pending.isEmpty()) return 0
 
         val entries = JSONArray()

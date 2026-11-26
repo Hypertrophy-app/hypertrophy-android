@@ -73,10 +73,10 @@ class SquadCacheMappingTest {
     fun membershipFallsBackToAthleteWhenTheServerOmitsARole() {
         val dto = SquadDto(id = "squad-1", name = "Iron Guild")
 
-        val membership = dto.toMembership(userId = "local-user", joinedAt = 9_000L)
+        val membership = dto.toMembership(userId = "user-1", joinedAt = 9_000L)
 
         assertEquals("squad-1", membership.squadId)
-        assertEquals("local-user", membership.userId)
+        assertEquals("user-1", membership.userId)
         assertEquals("athlete", membership.role)
         assertEquals(9_000L, membership.joinedAt)
     }

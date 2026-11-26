@@ -25,7 +25,7 @@ class PersonalRecordMathTest {
     fun firstRecordIsAStoredBaselineButNotAnnouncedAsAPr() {
         val merged = PersonalRecordMath.merge(
             previous = null,
-            userId = "local-user",
+            userId = "user-1",
             exerciseId = "ex_back_squat",
             topWeightKg = 100.0,
             topReps = 5,
@@ -69,7 +69,7 @@ class PersonalRecordMathTest {
 
         val merged = PersonalRecordMath.merge(
             previous = previous,
-            userId = "local-user",
+            userId = "user-1",
             exerciseId = "ex_back_squat",
             topWeightKg = 105.0,
             topReps = 4,
@@ -87,7 +87,7 @@ class PersonalRecordMathTest {
 
         val merged = PersonalRecordMath.merge(
             previous = previous,
-            userId = "local-user",
+            userId = "user-1",
             exerciseId = "ex_back_squat",
             topWeightKg = 90.0,
             topReps = 3,
@@ -108,7 +108,7 @@ class PersonalRecordMathTest {
 
         val merged = PersonalRecordMath.merge(
             previous = previous,
-            userId = "local-user",
+            userId = "user-1",
             exerciseId = "ex_back_squat",
             topWeightKg = 95.0,
             topReps = 8,
@@ -137,7 +137,7 @@ class PersonalRecordMathTest {
             val before = current
             current = PersonalRecordMath.merge(
                 previous = before,
-                userId = "local-user",
+                userId = "user-1",
                 exerciseId = "ex_back_squat",
                 topWeightKg = weight,
                 topReps = reps,
@@ -160,7 +160,7 @@ class PersonalRecordMathTest {
         estimated1rm: Double = 120.0,
     ): PersonalRecordEntity = PersonalRecordEntity(
         id = id,
-        userId = "local-user",
+        userId = "user-1",
         exerciseId = "ex_back_squat",
         maxWeightKg = maxWeightKg,
         maxReps = maxReps,

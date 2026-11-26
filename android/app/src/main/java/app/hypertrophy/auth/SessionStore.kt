@@ -69,6 +69,9 @@ object SessionStore {
             }
         }
             .onEach { active ->
+                // The user id is written before the Compose state so feature
+                // view models can never be constructed with a stale identity.
+                AuthSessionStore.userId = active?.userId
                 storedSession = active
                 // A cached token from the previous session must never leak into
                 // the next one; the refresher mints a fresh one per request.

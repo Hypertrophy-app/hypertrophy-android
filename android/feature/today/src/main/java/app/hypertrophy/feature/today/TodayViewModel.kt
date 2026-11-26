@@ -12,6 +12,7 @@ import app.hypertrophy.core.data.local.ScheduledWorkoutEntity
 import app.hypertrophy.core.data.local.TrainingDao
 import app.hypertrophy.core.data.local.WorkoutDao
 import app.hypertrophy.core.data.local.WorkoutSessionEntity
+import app.hypertrophy.core.data.network.AuthSessionStore
 import app.hypertrophy.core.data.squad.SquadLiveBus
 import app.hypertrophy.core.data.squad.TeammateSetProgress
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,7 +48,8 @@ class TodayViewModel @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val trainingDao: TrainingDao,
 ) : ViewModel() {
-    private val store = DashboardStore(dataStore)
+    private val userId: String = AuthSessionStore.requireUserId
+    private val store = DashboardStore(dataStore, userId)
 
     val layout: StateFlow<DashboardLayout> = store.layout
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardLayout())
@@ -62,11 +64,11 @@ class TodayViewModel @Inject constructor(
 
     val state: StateFlow<TodayUiState> = combine(
         combine(
-            trainingDao.observeScheduledForDay(USER_ID, todayEpochDay),
-            trainingDao.observeActiveChallenges(USER_ID, nowMillis),
-            workoutDao.observeSessionsSince(USER_ID, historyWindowStart),
-            workoutDao.observePersonalRecordBoard(USER_ID, limit = 4),
-            workoutDao.observeSessionTimestamps(USER_ID),
+            trainingDao.observeScheduledForDay(userId, todayEpochDay),
+            trainingDao.observeActiveChallenges(userId, nowMillis),
+            workoutDao.observeSessionsSince(userId, historyWindowStart),
+            workoutDao.observePersonalRecordBoard(userId, limit = 4),
+            workoutDao.observeSessionTimestamps(userId),
         ) { scheduled, challenges, sessions, records, timestamps ->
             buildBaseState(scheduled, challenges, sessions, records, timestamps)
         },
@@ -148,9 +150,5 @@ class TodayViewModel @Inject constructor(
             challenges = challenges,
         )
         return BaseState(state = base, sessionsForMuscles = sessions)
-    }
-
-    companion object {
-        const val USER_ID = "local-user"
     }
 }

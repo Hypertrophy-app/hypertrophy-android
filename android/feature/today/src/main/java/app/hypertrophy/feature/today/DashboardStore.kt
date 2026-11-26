@@ -79,16 +79,19 @@ object DashboardCollapseSignal {
     }
 }
 
-class DashboardStore(private val dataStore: DataStore<Preferences>) {
-    private object Keys {
-        val ORDER = stringPreferencesKey("today_card_order")
-        val VISIBLE = stringPreferencesKey("today_card_visible")
-        val COLLAPSED = stringPreferencesKey("today_card_collapsed")
-    }
+class DashboardStore(
+    private val dataStore: DataStore<Preferences>,
+    private val userId: String,
+) {
+    // Layout preferences belong to the signed-in athlete, so one account never
+    // sees another account's card order or hidden cards.
+    private val orderKey = stringPreferencesKey("$userId.today_card_order")
+    private val visibleKey = stringPreferencesKey("$userId.today_card_visible")
+    private val collapsedKey = stringPreferencesKey("$userId.today_card_collapsed")
 
     val layout: Flow<DashboardLayout> = dataStore.data.map { prefs ->
-        val orderRaw = prefs[Keys.ORDER]
-        val visibleRaw = prefs[Keys.VISIBLE]
+        val orderRaw = prefs[orderKey]
+        val visibleRaw = prefs[visibleKey]
         val order = orderRaw?.split(",")
             ?.mapNotNull { name -> TodayCard.entries.firstOrNull { it.name == name } }
             ?.distinct()
@@ -98,7 +101,7 @@ class DashboardStore(private val dataStore: DataStore<Preferences>) {
             ?.mapNotNull { name -> TodayCard.entries.firstOrNull { it.name == name } }
             ?.toSet()
             ?: TodayCard.entries.toSet()
-        val collapsed = prefs[Keys.COLLAPSED]?.split(",")
+        val collapsed = prefs[collapsedKey]?.split(",")
             ?.mapNotNull { name -> TodayCard.entries.firstOrNull { it.name == name } }
             ?.toSet()
             ?: emptySet()
@@ -107,9 +110,9 @@ class DashboardStore(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setLayout(layout: DashboardLayout) {
         dataStore.edit { prefs ->
-            prefs[Keys.ORDER] = layout.order.joinToString(",") { it.name }
-            prefs[Keys.VISIBLE] = layout.visible.joinToString(",") { it.name }
-            prefs[Keys.COLLAPSED] = layout.collapsed.joinToString(",") { it.name }
+            prefs[orderKey] = layout.order.joinToString(",") { it.name }
+            prefs[visibleKey] = layout.visible.joinToString(",") { it.name }
+            prefs[collapsedKey] = layout.collapsed.joinToString(",") { it.name }
         }
     }
 }

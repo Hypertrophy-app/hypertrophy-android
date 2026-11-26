@@ -16,8 +16,8 @@ class SessionHistoryStore @Inject constructor(
 ) {
     private val prefs = context.getSharedPreferences("coach_history", Context.MODE_PRIVATE)
 
-    fun previous(exerciseId: String): SessionMetrics? {
-        val raw = prefs.getString(exerciseId, null) ?: return null
+    fun previous(userId: String, exerciseId: String): SessionMetrics? {
+        val raw = prefs.getString(key(userId, exerciseId), null) ?: return null
         val parts = raw.split(SEPARATOR)
         if (parts.size != 8) return null
         return runCatching {
@@ -34,7 +34,7 @@ class SessionHistoryStore @Inject constructor(
         }.getOrNull()
     }
 
-    fun save(exerciseId: String, metrics: SessionMetrics) {
+    fun save(userId: String, exerciseId: String, metrics: SessionMetrics) {
         val encoded = listOf(
             metrics.exerciseName,
             metrics.sets.toString(),
@@ -46,8 +46,10 @@ class SessionHistoryStore @Inject constructor(
             metrics.estimated1RmKg.toString(),
         ).joinToString(SEPARATOR)
 
-        prefs.edit().putString(exerciseId, encoded).apply()
+        prefs.edit().putString(key(userId, exerciseId), encoded).apply()
     }
+
+    private fun key(userId: String, exerciseId: String): String = "$userId|$exerciseId"
 
     private companion object {
         const val SEPARATOR = "|"

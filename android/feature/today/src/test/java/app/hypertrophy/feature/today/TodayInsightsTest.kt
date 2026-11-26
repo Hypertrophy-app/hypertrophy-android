@@ -154,7 +154,7 @@ class TodayInsightsTest {
             .toEpochMilli()
         return WorkoutSessionEntity(
             id = "session-$daysAgo",
-            userId = "local-user",
+            userId = "user-1",
             squadId = null,
             title = "Session",
             startedAt = createdAt,
@@ -170,7 +170,7 @@ class TodayInsightsTest {
     private fun sessionWithSets(daysAgo: Long, createdAt: Long, setsJson: String): WorkoutSessionEntity =
         WorkoutSessionEntity(
             id = "session-$daysAgo",
-            userId = "local-user",
+            userId = "user-1",
             squadId = null,
             title = "Session",
             startedAt = createdAt,

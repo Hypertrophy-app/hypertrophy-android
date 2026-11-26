@@ -103,7 +103,7 @@ cd android
 .\gradlew.bat assembleDebug
 ```
 
-`compileSdk` and `targetSdk` are 35, `minSdk` is 26. The version catalog lives at
+`compileSdk` and `targetSdk` are 36, `minSdk` is 28. The version catalog lives at
 `android/gradle/libs.versions.toml`. Unit tests cover the smart rescheduling
 engine and equipment substitution engine in `:feature:workout`, the synthetic
 pose kinematics suite in `:core:kinematics`, the deterministic session recap
@@ -117,12 +117,11 @@ card/auth middleware contracts in `backend`.
 
 ### Current gaps
 
-- Clerk sign-in is not initialized in the Android app until the platform
-  baseline supports the catalog-pinned Clerk release. The app now gates every
-  screen behind a device-local account (`SessionStore`): the email is persisted
-  locally, no password or token is stored, and Google/passkey sign-in reports
-  that they need the Clerk integration. Local data is therefore still stored
-  under `local-user`; network requests still require a valid backend JWT.
+- Clerk sign-in is required. The app gates every screen behind an active Clerk
+  session and exposes email-code, Google, and passkey flows. All Room rows,
+  outbox entries, and sync payloads are keyed by the Clerk user id; there is no
+  shared `local-user` fallback. Signing out leaves local rows on disk but no
+  other account can read them. Network requests require a valid backend JWT.
 - Firebase Cloud Messaging is not configured, so squad invites are delivered by
   invite code or deep link rather than push notifications. This avoids adding a
   paid cloud dependency to an otherwise local-first stack.
@@ -136,25 +135,23 @@ card/auth middleware contracts in `backend`.
 
 ### Dependency baseline note
 
-The platform baseline is `compileSdk 35` with Kotlin 2.1.21 and Compose BOM
-2025.05.01. Three requested libraries were published after that baseline:
+The platform baseline is `compileSdk 36` with Kotlin 2.4.21 and Compose BOM
+2026.06.01.
 
-- `io.github.sceneview:sceneview:4.69.5` requires `compileSdk 37`, Kotlin
-  2.4.21, and Compose BOM 2026.09.00. It is pinned in the version catalog but
-  intentionally left off the module classpath. `ExerciseFormViewer` ships the
-  orbit, pinch-zoom, animation-speed, and emissive-highlight contract over a
-  hardware-free preview; replace its body with `SceneView { }` once the
-  platform baseline moves. `.glb` caching in `ExerciseModelCache` is already
-  SceneView-ready (`filesDir/models/<exerciseId>.glb`).
-- `com.clerk:clerk-android-ui:1.1.10` imports Kotlin 2.4.20 and Compose BOM
-  2026.06.01, so it is also catalog-only until the baseline moves.
-- `androidx.health.connect:connect-client:1.1.0` declares `minCompileSdk 36` but
-  works on the 35 baseline. AGP's AAR metadata gate is disabled with
-  `android.experimental.disableCompileSdkChecks=true` so the project can keep
-  `compileSdk 35` as specified.
+- `io.github.sceneview:sceneview:4.69.5` requires `compileSdk 37`, so it remains
+  pinned in the version catalog but off the module classpath.
+  `ExerciseFormViewer` ships the orbit, pinch-zoom, animation-speed, and
+  emissive-highlight contract over a hardware-free preview; replace its body
+  with `SceneView { }` once the platform baseline moves. `.glb` caching in
+  `ExerciseModelCache` is already SceneView-ready
+  (`filesDir/models/<exerciseId>.glb`).
+- `com.clerk:clerk-android-api:1.5.0` is integrated for the auth flows. The
+  prebuilt `clerk-android-ui` artifact is not used; Phoenix keeps its own auth
+  surfaces.
+- `androidx.health.connect:connect-client:1.1.0` declares `minCompileSdk 36`,
+  which the current baseline satisfies.
 
-Moving to `compileSdk 37`, Kotlin 2.4.x, and a matching Compose BOM is the
-recommended follow-up when the SDK baseline is allowed to change.
+Moving to `compileSdk 37` is the remaining follow-up for SceneView.
 
 ## Design system
 

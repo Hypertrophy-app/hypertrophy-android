@@ -24,6 +24,21 @@ object AuthSessionStore {
     var token: String? = null
 
     /**
+     * Clerk user id (`sub`) for the active session. Every local row and every
+     * sync payload is keyed by this value, so the app has no shared local-user
+     * identity. The app layer writes it when Clerk reports an active session.
+     */
+    @Volatile
+    var userId: String? = null
+
+    /**
+     * The signed-in user id. Screens are gated behind Clerk, so a feature view
+     * model is only constructed after [userId] has been populated.
+     */
+    val requireUserId: String
+        get() = userId ?: error("No authenticated Clerk user is active")
+
+    /**
      * Live source for the session JWT, wired by the app layer to Clerk. Keeping
      * this as a lambda means the database/network modules never depend on Clerk,
      * and every request gets a freshly minted token instead of one that may have
