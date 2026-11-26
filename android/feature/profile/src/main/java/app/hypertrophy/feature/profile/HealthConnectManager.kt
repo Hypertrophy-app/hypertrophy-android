@@ -7,8 +7,6 @@ import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.metadata.Metadata
-import androidx.health.connect.client.request.ReadRecordsRequest
-import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
 import app.hypertrophy.core.data.local.WorkoutSessionEntity
 import java.time.Instant
@@ -30,35 +28,16 @@ class HealthConnectManager(private val context: Context) {
         if (isAvailable) HealthConnectClient.getOrCreate(context) else null
     }
 
-    private val writePermissions: Set<String> = setOf(
-        HealthPermission.getWritePermission(ExerciseSessionRecord::class),
-        HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
-    )
-
     val permissions: Set<String> = setOf(
-        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
         HealthPermission.getWritePermission(ExerciseSessionRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
     )
-
-    suspend fun readExerciseSessions(start: Instant, end: Instant): List<ExerciseSessionRecord> {
-        val c = client ?: return emptyList()
-        return runCatching {
-            c.readRecords(
-                ReadRecordsRequest(
-                    recordType = ExerciseSessionRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(start, end),
-                ),
-            ).records
-        }.getOrDefault(emptyList())
-    }
 
     suspend fun hasWritePermissions(): Boolean {
         val c = client ?: return false
         val granted = runCatching { c.permissionController.getGrantedPermissions() }
             .getOrDefault(emptySet())
-        return granted.containsAll(writePermissions)
+        return granted.containsAll(permissions)
     }
 
     /**
